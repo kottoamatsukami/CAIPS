@@ -1,7 +1,7 @@
-import dearpygui.dearpygui as dpg
-import libs
-from libs import settings_manager as sm, error_handler
 import os
+import libs
+import front
+from libs import settings_manager as sm, error_handler
 
 
 def main(*args):
@@ -62,53 +62,11 @@ def main(*args):
         msg="setting file was successfully used, starting GUI..."
     ) if debug_mode else None
 
-    # ------------------------
-    # Initialize the dearpygui
-    # ------------------------
-    dpg.create_context()
-    dpg.create_viewport(
-        title=settings["title"],
-        height=settings["height"],
-        width=settings["width"],
-        small_icon="front/icons/wing_small.ico",
-        large_icon="front/icons/wing_large.ico",
-        min_width=settings["min_width"],
-        min_height=settings["min_height"],
+    gui = front.GUI(
+        settings=settings,
+        debug_mode=debug_mode,
     )
-
-    if debug_mode:
-        dpg.show_debug()
-        dpg.show_metrics()
-
-    # Main window
-    with dpg.window(tag="Primary Window"):
-        dpg.add_text("Hello, world")
-
-        # Menu bar
-        with dpg.menu_bar():
-            with dpg.menu(label="Options"):
-                dpg.add_menu_item(label="Save Parameters (Ctrl+S)")
-                dpg.add_menu_item(label="Load Parameters (Ctrl+L)")
-                dpg.add_menu_item(label="Credits")
-
-            with dpg.menu(label="Themes"):
-                dpg.add_menu_item(label="Dark")
-                dpg.add_menu_item(label="Light")
-                dpg.add_menu_item(label="Classic")
-
-            with dpg.menu(label="Tools"):
-                dpg.add_menu_item(label="Show Logger")
-                dpg.add_menu_item(label="Show About")
-
-        # draw API
-        with dpg.viewport_drawlist(label="Draw"):
-            dpg.add_draw_layer()
-
-    dpg.setup_dearpygui()
-    dpg.show_viewport()
-    dpg.set_primary_window("Primary Window", True)
-    dpg.start_dearpygui()
-    dpg.destroy_context()
+    gui.run()
 
 
 if __name__ == '__main__':
