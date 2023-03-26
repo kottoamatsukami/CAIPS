@@ -1,7 +1,7 @@
 
 <body>
     <div align="center">
-        <font size="7"><b>CAIPS</b></font><br />
+        <font size="14"><b>CAIPS</b></font><br />
         <img src="front/img/wing.png" width="400"><br>
         CAIPS - The task of Compressing An Inflatable Pneumatic Structure
     </div>
