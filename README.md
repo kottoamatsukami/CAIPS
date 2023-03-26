@@ -1,6 +1,21 @@
-# CAIPS
-CAIPS - The task of Compressing An Inflatable Pneumatic Structure
 
-Brainstorm:
-https://wbd.ms/share/v2/aHR0cHM6Ly93aGl0ZWJvYXJkLm1pY3Jvc29mdC5jb20vYXBpL3YxLjAvd2hpdGVib2FyZHMvcmVkZWVtLzM3NDJkZWMxOGI3YTRiZGE5ZGYwYTQyNzAwYmZiNTk0X0JCQTcxNzYyLTEyRTAtNDJFMS1CMzI0LTVCMTMxRjQyNEUzRF83ZGVlNWFmZS1iNDc4LTQ5N2EtYTYzNy1hNGJjYzY2NGFjMDQ=
-
+<body>
+    <div align="center">
+        <font size="7"><b>CAIPS</b></font><br />
+        <img src="front/img/wing.png" width="400"><br>
+        CAIPS - The task of Compressing An Inflatable Pneumatic Structure
+    </div>
+    <div>
+        <a href="https://clck.ru/33sbmd"> Brainstorm desk (MS Whiteboard)</a>
+    </div>
+    <div>
+        We consider the problem of compressing an inflatable pneumatic structure. The origin of coordinates is taken at the ground surface, the y-axis
+is directed upward, the x-axis is to the right. Determine the deformed shape of the two-tier pneumatic shell,
+that is under pressure from the air cushion. The contact with the supporting surface is neglected.
+    </div>
+    <div align="center">
+        <img src="front/img/image_1.png" width="400"><br>
+        <img src="front/img/image_2.png" width="400">
+    </div>
+    
+</body>
