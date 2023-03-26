@@ -1,3 +1,4 @@
 dearpygui==1.9.0
 scipy==1.10.0
 matplotlib==3.6.3
+halo==0.0.31
