@@ -30,7 +30,6 @@ class GUI:
 
         # Main window
         with dpg.window(tag="Primary Window"):
-            dpg.add_text("Hello, world")
 
             # Menu bar
             with dpg.menu_bar():
@@ -47,6 +46,10 @@ class GUI:
                 with dpg.menu(label="Tools"):
                     dpg.add_menu_item(label="Show Logger", callback=self.callback_show_logger)
                     dpg.add_menu_item(label="Show About")
+
+                with dpg.menu(label="Mode"):
+                    dpg.add_menu_item(label="Bouncing air cushion")
+                    dpg.add_menu_item(label="Double-deck air cushion with side pressure")
 
             with dpg.window(
                     no_resize=True,
@@ -90,7 +93,7 @@ class GUI:
                                       min_value=-10, max_value=10,
                                       default_value=0.19 * 2)
                 dpg.add_slider_double(label="Pt0", tag="slider_Pt0",
-                                      min_value=-10000, max_value=10000,
+                                      min_value=-50000, max_value=50000,
                                       default_value=12000 * 2)
                 dpg.add_slider_double(label="Pb0", tag="slider_Pb0",
                                       min_value=-10000, max_value=10000,
@@ -136,14 +139,14 @@ class GUI:
             item="Side_menu",
             pos=(
                 dpg.get_viewport_width() - dpg.get_item_width(item="Side_menu"),
-                dpg.get_viewport_height() - dpg.get_item_height(item="Side_menu"),
+                dpg.get_viewport_height()//2 - dpg.get_item_height(item="Side_menu")//2,
             ),
         )
         dpg.set_item_pos(
             item="Canvas_window",
             pos=(
-                dpg.get_viewport_width()-1200,
-                dpg.get_viewport_height()-550,
+                0,
+                dpg.get_viewport_height()//2 - dpg.get_item_height(item="Canvas_window")//2,
             ),
         )
 
