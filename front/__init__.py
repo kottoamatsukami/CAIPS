@@ -1,5 +1,9 @@
+import os
+
 import dearpygui.dearpygui as dpg
 from dearpygui_ext import logger
+from libs import error_handler
+import libs
 
 
 class GUI:
@@ -8,6 +12,14 @@ class GUI:
         self.debug_mode = debug_mode
         self.log = False
         self.logger = None
+
+        # -------------------------
+        # Checking keys in settings
+        # -------------------------
+        if not (self.settings["standard_theme"] in ["classic", "dark", "light"]):
+            error_handler.raise_error(
+                msg=f'Theme <{self.settings["standard_theme"]}> is unknown.'
+            )
 
     def run(self):
         # ------------------------
@@ -27,6 +39,7 @@ class GUI:
         if self.debug_mode:
             dpg.show_debug()
             dpg.show_metrics()
+            dpg.show_style_editor()
 
         # Main window
         with dpg.window(tag="Primary Window"):
@@ -39,17 +52,15 @@ class GUI:
                     dpg.add_menu_item(label="Credits")
 
                 with dpg.menu(label="Themes"):
-                    dpg.add_menu_item(label="Dark")
-                    dpg.add_menu_item(label="Light")
-                    dpg.add_menu_item(label="Classic")
+                    dpg.add_menu_item(label="Theme editor", callback=self.callback_show_theme_editor)
 
                 with dpg.menu(label="Tools"):
                     dpg.add_menu_item(label="Show Logger", callback=self.callback_show_logger)
                     dpg.add_menu_item(label="Show About")
 
                 with dpg.menu(label="Mode"):
-                    dpg.add_menu_item(label="Bouncing air cushion")
-                    dpg.add_menu_item(label="Double-deck air cushion with side pressure")
+                    dpg.add_menu_item(label="(1) Bouncing air cushion")
+                    dpg.add_menu_item(label="(2) Double-deck air cushion with side pressure")
 
             with dpg.window(
                     no_resize=True,
@@ -132,9 +143,11 @@ class GUI:
 
         dpg.destroy_context()
 
+    def _init_std_settings(self):
+        None
+
     @staticmethod
     def callback_resize_viewport_window():
-        print(dpg.get_viewport_width(), dpg.get_viewport_height(), dpg.get_item_width(item="Side_menu"), dpg.get_item_pos(item="Side_menu"))
         dpg.set_item_pos(
             item="Side_menu",
             pos=(
@@ -153,7 +166,34 @@ class GUI:
     def callback_show_logger(self):
         self.log = True
         self.logger = logger.mvLogger()
-        self.logger.log_info("Starting log...")
+        self.log_message("Starting log...")
+
+    def log_message(self, msg: str, type_="info"):
+        # "type_ can be either 'info', 'warning' or 'critical'"
+        if self.log and type_ in ["info", "warning", "critical"]:
+            if type_ == "info":
+                self.logger.log_info(msg)
+            if type_ == "warning":
+                self.logger.log_warning(msg)
+            if type_ == "critical":
+                self.logger.log_critical(msg)
+
+    # -----------------
+    # Theme Callbacks
+    # -----------------
+    def callback_show_theme_editor(self):
+        # Load fonts
+        with dpg.font_registry():
+            for font in os.listdir("./front/fonts"):
+                if font.endswith(".ttf"):
+                    dpg.add_font(
+                        file="./front/fonts/" + font,
+                        size=20
+                    )
+                    self.log_message(msg=f"Font {font} was added to theme editor", type_="info")
+                else:
+                    self.log_message(msg=f"Unknown type of file: {font}", type_="warning")
+        dpg.show_style_editor()
 
     # -----------------
     # Sliders Callbacks
