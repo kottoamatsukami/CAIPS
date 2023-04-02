@@ -3,7 +3,7 @@ import os
 import dearpygui.dearpygui as dpg
 from dearpygui_ext import logger
 from libs import error_handler
-import libs
+import math
 
 
 class GUI:
@@ -12,6 +12,22 @@ class GUI:
         self.debug_mode = debug_mode
         self.log = False
         self.logger = None
+        self.parameters = {
+            "Ax": 0,
+            "Ay": 0.95 * 2,
+            "Bx": 0.30 * 2,
+            "By": 0.65 * 2,
+            "Rt": 0.30 * 2,
+            "Rb": 0.19 * 2,
+            "Pt0": 12000 * 2,
+            "Pb0": 4000 * 2,
+            "Pac": 2000,
+            "Xtop": 0,
+            "Ytop": 0.65 * 2,
+            "Xbot": 0,
+            "Ybot": 0.22 * 2,
+            "alpha5": 3*math.pi/2,
+        }
 
         # -------------------------
         # Checking keys in settings
@@ -75,46 +91,60 @@ class GUI:
                 dpg.add_text(label="side menu", default_value="Parameters")
                 dpg.add_slider_double(label="Ax", tag="slider_Ax",
                                       min_value=-10, max_value=10,
-                                      default_value=0)
+                                      default_value=self.parameters["Ax"],
+                                      callback=self.universal_slider_callback)
                 dpg.add_slider_double(label="Ay", tag="slider_Ay",
                                       min_value=-10, max_value=10,
-                                      default_value=0.95 * 2)
+                                      default_value=self.parameters["Ay"],
+                                      callback=self.universal_slider_callback)
                 dpg.add_slider_double(label="Bx", tag="slider_Bx",
                                       min_value=-10, max_value=10,
-                                      default_value=0.30 * 2)
+                                      default_value=self.parameters["Bx"],
+                                      callback=self.universal_slider_callback)
                 dpg.add_slider_double(label="By", tag="slider_By",
                                       min_value=-10, max_value=10,
-                                      default_value=0.65 * 2)
+                                      default_value=self.parameters["By"],
+                                      callback=self.universal_slider_callback)
                 dpg.add_slider_double(label="Xtop", tag="slider_Xtop",
                                       min_value=-10, max_value=10,
-                                      default_value=0)
+                                      default_value=self.parameters["Xtop"],
+                                      callback=self.universal_slider_callback)
                 dpg.add_slider_double(label="Ytop", tag="slider_Ytop",
                                       min_value=-10, max_value=10,
-                                      default_value=0.65 * 2)
+                                      default_value=self.parameters["Ytop"],
+                                      callback=self.universal_slider_callback)
                 dpg.add_slider_double(label="Xbot", tag="slider_Xbot",
                                       min_value=-10, max_value=10,
-                                      default_value=0)
+                                      default_value=self.parameters["Xbot"],
+                                      callback=self.universal_slider_callback)
                 dpg.add_slider_double(label="Ybot", tag="slider_Ybot",
                                       min_value=-10, max_value=10,
-                                      default_value=0.22 * 2)
+                                      default_value=self.parameters["Ybot"],
+                                      callback=self.universal_slider_callback)
                 dpg.add_slider_double(label="Rt", tag="slider_Rt",
                                       min_value=-10, max_value=10,
-                                      default_value=0.3 * 2)
+                                      default_value=self.parameters["Rt"],
+                                      callback=self.universal_slider_callback)
                 dpg.add_slider_double(label="Rb", tag="slider_Rb",
                                       min_value=-10, max_value=10,
-                                      default_value=0.19 * 2)
+                                      default_value=self.parameters["Rb"],
+                                      callback=self.universal_slider_callback)
                 dpg.add_slider_double(label="Pt0", tag="slider_Pt0",
                                       min_value=-50000, max_value=50000,
-                                      default_value=12000 * 2)
+                                      default_value=self.parameters["Pt0"],
+                                      callback=self.universal_slider_callback)
                 dpg.add_slider_double(label="Pb0", tag="slider_Pb0",
                                       min_value=-10000, max_value=10000,
-                                      default_value=4000 * 2)
+                                      default_value=self.parameters["Pb0"],
+                                      callback=self.universal_slider_callback)
                 dpg.add_slider_double(label="Pac", tag="slider_Pac",
                                       min_value=-10000, max_value=10000,
-                                      default_value=2000)
+                                      default_value=self.parameters["Pac"],
+                                      callback=self.universal_slider_callback)
                 dpg.add_slider_double(label="alpha5", tag="slider_alpha5",
                                       min_value=0, max_value=360,
-                                      default_value=270)
+                                      default_value=self.parameters["alpha5"],
+                                      callback=self.universal_slider_callback)
 
             with dpg.window(
                     no_resize=True,
@@ -199,6 +229,7 @@ class GUI:
     # Sliders Callbacks
     # -----------------
 
-
-
-
+    def universal_slider_callback(self, sender, app_data):
+        user_data = dpg.get_item_label(sender)
+        self.log_message(msg=f"Slider {user_data} [{self.parameters[user_data]:.3f}] -> [{app_data:.3f}]", type_="info")
+        self.parameters[user_data] = app_data
