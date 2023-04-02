@@ -29,14 +29,6 @@ class GUI:
             "alpha5": 3*math.pi/2,
         }
 
-        # -------------------------
-        # Checking keys in settings
-        # -------------------------
-        if not (self.settings["standard_theme"] in ["classic", "dark", "light"]):
-            error_handler.raise_error(
-                msg=f'Theme <{self.settings["standard_theme"]}> is unknown.'
-            )
-
     def run(self):
         # ------------------------
         # Initialize the dearpygui
@@ -60,9 +52,25 @@ class GUI:
         # Main window
         with dpg.window(tag="Primary Window"):
 
+            # Process Button
+            width, height, channels, data = dpg.load_image("./front/img/play_button.png")
+            with dpg.texture_registry():
+                dpg.add_static_texture(width=width, height=height, default_value=data, tag="Process Button")
+            dpg.add_image_button(
+                texture_tag="Process Button",
+                width=90,
+                height=90,
+                pos=(
+                    dpg.get_viewport_width()//2 - 45,
+                    dpg.get_viewport_height()//2 - 90,
+                ),
+                tag="Play_button"
+            )
+
             # Menu bar
             with dpg.menu_bar():
                 with dpg.menu(label="Options"):
+                    dpg.add_menu_item(label="Nodes", callback=self.callback_graph_editor)
                     dpg.add_menu_item(label="Save Parameters (Ctrl+S)")
                     dpg.add_menu_item(label="Load Parameters (Ctrl+L)")
                     dpg.add_menu_item(label="Credits")
@@ -193,6 +201,14 @@ class GUI:
             ),
         )
 
+        dpg.set_item_pos(
+            item="Play_button",
+            pos=(
+                dpg.get_viewport_width() // 2 - dpg.get_item_width(item="Play_button")//2,
+                dpg.get_viewport_height() // 2 - dpg.get_item_height(item="Play_button"),
+            ),
+        )
+
     def callback_show_logger(self):
         self.log = True
         self.logger = logger.mvLogger()
@@ -215,7 +231,7 @@ class GUI:
         # Load fonts
         with dpg.font_registry():
             for font in os.listdir("./front/fonts"):
-                if font.endswith(".ttf"):
+                if font.endswith(".ttf") or font.endswith(".otf"):
                     dpg.add_font(
                         file="./front/fonts/" + font,
                         size=20
@@ -233,3 +249,25 @@ class GUI:
         user_data = dpg.get_item_label(sender)
         self.log_message(msg=f"Slider {user_data} [{self.parameters[user_data]:.3f}] -> [{app_data:.3f}]", type_="info")
         self.parameters[user_data] = app_data
+
+    # -----------------
+    # Node Graph
+    # -----------------
+    def callback_graph_editor(self):
+        with dpg.window(
+                label="Options",
+                width=dpg.get_viewport_width()//1.5,
+                height=dpg.get_viewport_height()//1.5,
+                pos=(0, 0),
+
+        ):
+            with dpg.node_editor(callback=self.callback_link_node, delink_callback=self.callback_unlink_node):
+                with dpg.node(label="Ax"):
+                    with dpg.node_attribute(label="Node A1"):
+                        dpg.add_input_float(label="F1", width=150)
+
+    def callback_link_node(self, sender, app_data):
+        None
+
+    def callback_unlink_node(self, sender, app_data):
+        None
