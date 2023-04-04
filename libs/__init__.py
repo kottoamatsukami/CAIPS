@@ -1,7 +1,7 @@
 STD_SETTINGS = {
-    "width": 800,
+    "width": 1200,
     "height": 800,
-    "min_width": 600,
-    "min_height": 600,
+    "min_width": 1200,
+    "min_height": 800,
     "title": "CAIPS - Simulation",
 }
