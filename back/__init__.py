@@ -1,6 +1,3 @@
+EPS = 0.0001
+TAU = 0.005
 
-
-
-
-class Solver:
-    None

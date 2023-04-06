@@ -2,7 +2,7 @@ import os
 
 import dearpygui.dearpygui as dpg
 from dearpygui_ext import logger
-from libs import error_handler
+from back import establishing_solver
 import math
 
 
@@ -12,6 +12,7 @@ class GUI:
         self.debug_mode = debug_mode
         self.log = False
         self.logger = None
+        self.current_mode = 1
         self.parameters = {
             "Ax": 0,
             "Ay": 0.95 * 2,
@@ -64,7 +65,8 @@ class GUI:
                     dpg.get_viewport_width()//2 - 45,
                     dpg.get_viewport_height()//2 - 90,
                 ),
-                tag="Play_button"
+                tag="Play_button",
+                callback=self.callback_play_button,
             )
 
             # Menu bar
@@ -83,8 +85,21 @@ class GUI:
                     dpg.add_menu_item(label="Show About")
 
                 with dpg.menu(label="Mode"):
-                    dpg.add_menu_item(label="(1) Bouncing air cushion")
-                    dpg.add_menu_item(label="(2) Double-deck air cushion with side pressure")
+                    dpg.add_menu_item(
+                        label="(1) Determine the shape of a single-cavity air cushion <--",
+                        callback=self.callback_set_mode,
+                        id="mode 1",
+                    )
+                    dpg.add_menu_item(
+                        label="(2) Bouncing air cushion",
+                        callback=self.callback_set_mode,
+                        id="mode 2",
+                    )
+                    dpg.add_menu_item(
+                        label="(3) Double-deck air cushion with side pressure",
+                        callback=self.callback_set_mode,
+                        id="mode 3",
+                    )
 
             with dpg.window(
                     no_resize=True,
@@ -240,6 +255,63 @@ class GUI:
                 else:
                     self.log_message(msg=f"Unknown type of file: {font}", type_="warning")
         dpg.show_style_editor()
+
+    # ------------------
+    # Menu Bar Callbacks
+    # ------------------
+    def callback_set_mode(self, sender):
+        # Remove old using
+        old = "mode " + str(self.current_mode)
+        dpg.set_item_label(
+            item=old,
+            label=dpg.get_item_label(
+                item=old,
+            ).replace("<--", "").strip()
+        )
+        # Add new using
+        self.current_mode = int(sender[-1])
+        dpg.set_item_label(
+            item=sender,
+            label=dpg.get_item_label(
+                item=sender,
+            ).replace("<--", "").strip() + " <--"
+        )
+        # Logging
+        self.log_message(
+            msg=f"Change script mode from <{old}> to <{sender}>",
+            type_="info",
+        )
+    # -----------------
+    # Play Button callback
+    # -----------------
+    def callback_play_button(self, sender):
+        # Determine target mode
+
+        if self.current_mode == 1:
+            # 4 score
+            vector = [
+                    0,  # x1
+                    0,  # x2
+                    0,  # y
+                    0,  # phi1
+                    0,  # phi2
+                    self.parameters["Ax"],
+                    self.parameters["Ay"],
+                    self.parameters["Bx"],
+                    self.parameters["By"],
+                    0, # C
+                ]
+            solver = establishing_solver.EstablishingSolverV4()
+            self.log_message(f"Used following vector: {vector}")
+            self.log_message("Started calculating for first mode...")
+            solution = solver.establish(values=vector, logger=self.log_message)
+
+            print(solution)
+        else:
+            self.log_message(
+                msg="BRANCH NOT IMPLEMENTED",
+                type_="critical",
+            )
 
     # -----------------
     # Sliders Callbacks

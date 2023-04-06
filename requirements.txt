@@ -3,3 +3,4 @@ dearpygui_ext==0.9.5
 scipy==1.10.0
 matplotlib==3.6.3
 halo==0.0.31
+numpy==1.24.1
