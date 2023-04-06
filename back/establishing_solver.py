@@ -53,7 +53,7 @@ class EstablishingSolver(object):
         # value_10 : C
         # }
         # ----------------------------------------
-        X = [np.array([0.0, 0.0, 0.0, 0.0, 0.0]) for _ in range(2)]
+        X = [np.array([values[5], values[7], values[6], values[3], values[4]]) for _ in range(2)]
 
         key = 0
         while (key == 0 or np.linalg.norm(abs(X[0]-X[1]), ord=2) > EPS):
@@ -69,3 +69,11 @@ class EstablishingSolver(object):
 # # Add data from GUI here
 # vals = [20.0, 45.0, 30.0, 0.0, 0.0, -0.353, 0.3, 0.353, 0.3, 3*np.pi/8]
 # values = EstablishingSolver().establish(vals)
+
+# For test:
+# values = np.append(values, -0.353)
+# values = np.append(values, 0.3)
+# values = np.append(values, 0.353)
+# values = np.append(values, 0.3)
+# values = np.append(values, 3*np.pi/8)
+# print(EstablishingSolver().get_system_values(values))
