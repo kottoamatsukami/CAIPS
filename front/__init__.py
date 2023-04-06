@@ -4,6 +4,8 @@ import dearpygui.dearpygui as dpg
 from dearpygui_ext import logger
 from back import establishing_solver
 import math
+import plyer
+import pickle
 
 
 class GUI:
@@ -13,6 +15,7 @@ class GUI:
         self.log = False
         self.logger = None
         self.current_mode = 1
+        self.root = os.getcwd()
         self.parameters = {
             "Ax": 0,
             "Ay": 0.95 * 2,
@@ -72,10 +75,22 @@ class GUI:
             # Menu bar
             with dpg.menu_bar():
                 with dpg.menu(label="Options"):
-                    dpg.add_menu_item(label="Nodes", callback=self.callback_graph_editor)
-                    dpg.add_menu_item(label="Save Parameters (Ctrl+S)")
-                    dpg.add_menu_item(label="Load Parameters (Ctrl+L)")
-                    dpg.add_menu_item(label="Credits")
+                    dpg.add_menu_item(
+                        label="Nodes",
+                        callback=self.callback_graph_editor
+                    )
+                    dpg.add_menu_item(
+                        label="Save Parameters (Ctrl+S)",
+                        callback=self.callback_save_parameters
+                    )
+                    dpg.add_menu_item(
+                        label="Load Parameters (Ctrl+L)",
+                        callback=self.callback_load_parameters
+                    )
+                    dpg.add_menu_item(
+                        label="Credits",
+                        callback=self.callback_show_credits,
+                    )
 
                 with dpg.menu(label="Themes"):
                     dpg.add_menu_item(label="Theme editor", callback=self.callback_show_theme_editor)
@@ -169,6 +184,10 @@ class GUI:
                                       default_value=self.parameters["alpha5"],
                                       callback=self.universal_slider_callback)
 
+                dpg.add_tab_bar()
+                dpg.add_text("Set the exact values: <name> <value> <$>")
+                dpg.add_input_text(callback=self.callback_set_parameter)
+
             with dpg.window(
                     no_resize=True,
                     no_move=True,
@@ -245,16 +264,32 @@ class GUI:
     def callback_show_theme_editor(self):
         # Load fonts
         with dpg.font_registry():
-            for font in os.listdir("./front/fonts"):
+            for font in os.listdir(os.path.join(self.root, "front/fonts")):
                 if font.endswith(".ttf") or font.endswith(".otf"):
                     dpg.add_font(
-                        file="./front/fonts/" + font,
+                        file=os.path.join(self.root, "front/fonts", font),
                         size=20
                     )
                     self.log_message(msg=f"Font {font} was added to theme editor", type_="info")
                 else:
                     self.log_message(msg=f"Unknown type of file: {font}", type_="warning")
         dpg.show_style_editor()
+
+    # -----------------
+    # Post Slider Input
+    # -----------------
+    def callback_set_parameter(self, sender, value):
+        if len(value.split()) == 3:
+            variable, value, end = value.split()
+            if end != "$":
+                return
+            if variable not in self.parameters.keys():
+                self.log_message(msg=f"Unknown parameter: {variable}", type_="warning")
+            else:
+                self.universal_slider_callback(
+                    sender="slider_"+variable,
+                    app_data=float(value),
+                )
 
     # ------------------
     # Menu Bar Callbacks
@@ -281,6 +316,58 @@ class GUI:
             msg=f"Change script mode from <{old}> to <{sender}>",
             type_="info",
         )
+
+    def callback_save_parameters(self):
+        path = plyer.filechooser.save_file(
+            path=os.getcwd(),
+            title="Save parameter file",
+            filters=["*.caips"]
+        )
+        if len(path) == 0:
+            return
+        path = path[0].replace(".caips", "")
+        with open(path+".caips", "wb") as f:
+            pickle.dump(self.parameters, f)
+            self.log_message("Successfully saved parameters")
+
+    def callback_load_parameters(self):
+        path = plyer.filechooser.open_file(
+            path=os.getcwd(),
+            title="Chose parameter file",
+            filters=["*.caips"]
+        )
+        if len(path) == 0:
+            return
+        path = path[0]
+        if os.path.exists(path) and len(path) > 0:
+            if path.endswith(".caips"):
+                with open(path, "rb") as f:
+                    self.parameters = pickle.load(f)
+                    for key in self.parameters.keys():
+                        self.update_slider(
+                            sender="slider_"+key,
+                            value=self.parameters[key],
+                        )
+                    self.log_message("Successfully loaded new parameters")
+
+            else:
+                self.log_message(
+                    msg=f"Unknown file extension: {path}",
+                    type_="critical",
+                )
+        else:
+            self.log_message(
+                msg=f"Unknown file path: {path}",
+                type_="critical",
+            )
+
+    @staticmethod
+    def callback_show_credits():
+        import webbrowser
+        webbrowser.open(
+            url="https://github.com/kottoamatsukami/CAIPS/graphs/contributors"
+        )
+
     # -----------------
     # Play Button callback
     # -----------------
@@ -316,9 +403,13 @@ class GUI:
     # -----------------
     # Sliders Callbacks
     # -----------------
+    @staticmethod
+    def update_slider(sender, value):
+        dpg.set_value(sender, value)
 
     def universal_slider_callback(self, sender, app_data):
         user_data = dpg.get_item_label(sender)
+        self.update_slider(sender, app_data)
         self.log_message(msg=f"Slider {user_data} [{self.parameters[user_data]:.3f}] -> [{app_data:.3f}]", type_="info")
         self.parameters[user_data] = app_data
 
