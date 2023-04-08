@@ -399,7 +399,6 @@ class GUI(object):
         dpg.set_value(sender, value)
 
     def universal_slider_callback(self, sender, app_data):
-        print(sender, app_data)
         user_data = dpg.get_item_label(sender)
         self.update_slider(sender, app_data)
         self.log_message(msg=f"Slider {user_data} [{self.parameters[user_data]:.3f}] -> [{app_data:.3f}]", type_="info")
