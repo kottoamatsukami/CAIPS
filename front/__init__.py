@@ -2,10 +2,15 @@ import os  # Working with the operating system
 import libs  # Working with STD files
 import plyer  # Working with file dialog
 import pickle  # Working with pickled files
+import math
+import time
+import numpy
+from matplotlib import pyplot as plt, patches as pth
 import dearpygui.dearpygui as dpg  # Working with GUI
 import front.gui_parameters as gp  # Working with GUI parameters
 from dearpygui_ext import logger  # Working with logger
 from back import establishing_solver  # Working with solver
+from PIL import Image
 
 
 class GUI(object):
@@ -193,12 +198,9 @@ class GUI(object):
                     tag="Canvas_window",
             ):
                 dpg.add_text(default_value="Canvas")
-                with dpg.drawlist(
-                        width=500,
-                        height=500,
-                        tag="canvas",
-                ):
-                    dpg.draw_line(0, 5)
+                self.init_canvas()
+                dpg.add_image("current image")
+
 
         dpg.setup_dearpygui()
 
@@ -383,8 +385,16 @@ class GUI(object):
             self.log_message(f"Used following vector: {vector}")
             self.log_message("Started calculating for first mode...")
             solution = solver.establish(values=vector, logger=self.log_message)
-
             print(solution)
+
+            # ------------
+            # Using Canvas
+            # ------------
+
+            self.low_graphing(solution)
+
+
+            plt.show()
         else:
             self.log_message(
                 msg="BRANCH NOT IMPLEMENTED",
@@ -490,3 +500,87 @@ class GUI(object):
         for link in dpg.get_selected_links("NE") + dpg.get_selected_nodes("NE"):
             if dpg.get_item_label(link) not in self.parameters.keys():
                 dpg.delete_item(link)
+
+    @staticmethod
+    def euclidean_distance(p1: tuple, p2: tuple) -> float:
+        return math.sqrt(
+            (p1[0] - p2[0])**2 + (p1[1] - p2[1])**2
+        )
+
+    def low_graphing(self, vector: list[float]):
+        fig, axs = plt.subplots(1, 1, figsize=(5, 5))
+        axs.set_aspect("equal")
+        r1 = self.euclidean_distance(
+            p1=(self.parameters["Ax"], self.parameters["Ay"]),
+            p2=(vector[0], vector[2]),
+        )
+        r2 = self.euclidean_distance(
+            p1=(self.parameters["Bx"], self.parameters["By"]),
+            p2=(vector[1], vector[2]),
+        )
+
+        # Line AB
+        axs.plot((self.parameters["Ax"], self.parameters["Bx"]), (self.parameters["Ay"], self.parameters["By"]),
+                 color='black')
+        # Line X1X2
+        axs.plot((vector[0], vector[1]), (0, 0),
+                 color='black')
+
+        arc1 = pth.Arc(
+            xy=(vector[0], vector[2]),
+            width=r1*2,
+            height=r1*2,
+            angle=0,
+            theta1=(self.parameters["alpha5"] - vector[3]) * 180 / math.pi,
+            theta2=(self.parameters["alpha5"] * 180 / math.pi),
+
+        )
+        axs.add_patch(arc1)
+
+        arc2 = pth.Arc(
+            xy=(vector[1], vector[2]),
+            width=r2 * 2,
+            height=r2 * 2,
+            angle=270,
+            theta1=0,
+            theta2=vector[4] * 180 / math.pi,
+
+        )
+        axs.add_patch(arc2)
+
+        # Convert to GIF format
+        fig.savefig("saved_parameters/temp.png")
+        im = Image.open("saved_parameters/temp.png")
+        im.save("saved_parameters/temp.gif")
+        self.update_canvas(
+            "saved_parameters/temp.gif",
+            sleep=0.1
+        )
+
+    @staticmethod
+    def init_canvas():
+        texture_data = []
+        for i in range(dpg.get_item_height("Canvas_window")*dpg.get_item_width("Canvas_window")):
+            texture_data.append(255/255)
+            texture_data.append(0)
+            texture_data.append(255/255)
+            texture_data.append(255/255)
+        with dpg.texture_registry():
+            dpg.add_dynamic_texture(
+                width=dpg.get_item_width("Canvas_window"),
+                height=dpg.get_item_height("Canvas_window"),
+                default_value=texture_data,
+                tag="current image"
+            )
+
+    def update_canvas(self, gif_path: str, sleep=1):
+        # Open GIF
+        img = Image.open(gif_path)
+
+        for part in img.split():
+            part = part.convert("RGBA")
+            part = numpy.frombuffer(part.tobytes(), dtype=numpy.uint8) / 255.0
+            dpg.set_value("current image", part)
+            time.sleep(sleep)
+
+
