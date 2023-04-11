@@ -1,8 +1,8 @@
 import pickle
 import numpy as np
 
-EPS = 0.0001
-TAU = 0.005
+EPS = 1e-7
+TAU = 0.9
 class EstablishingSolver(object):
 
     global EPS, TAU
@@ -13,7 +13,7 @@ class EstablishingSolver(object):
             data = pickle.load(file)
         return data
 
-    def get_system_values(self, values: float or int) -> float or int:
+    def get_system_values(self, values: list[float]) -> list[float]:
         # ----------------------------------------
         # structure
         # values = {
@@ -30,18 +30,14 @@ class EstablishingSolver(object):
         # }
         # ----------------------------------------
         F = np.zeros(5)
-        # values[3] = values[3] % (2*np.pi)
-        # values[4] = values[4] % (2*np.pi)
         F[0] = values[0] + values[2] * np.cos(3*np.pi/2 - values[3]) - values[5]
         F[1] = values[1] + values[2] * np.cos(3*np.pi/2 + values[4]) - values[7]
         F[2] = values[2] + values[2] * np.sin(3*np.pi/2 - values[3]) - values[6]
-        # print(values[3], values[4], values[2], values[1], values[0], values[9])
         F[3] = ((values[3] + values[4]) * values[2] + (values[1] - values[0]) - values[9])
-        # print(F[3])
         F[4] = (values[2] + values[2] * np.sin(3*np.pi/2 + values[4]) - values[8])
         return F
 
-    def establish(self, values: float or int) -> float or int:
+    def establish(self, values: list[float]) -> list[float]:
         # ----------------------------------------
         # structure
         # values = {
@@ -72,14 +68,14 @@ class EstablishingSolver(object):
 
 
 
-# Add data from GUI here.
-vals = [0.0, 0.0, 0.3, 0.0, 0.0, -0.353, 0.3, 0.353, 0.3, 3*np.pi/8]
-values = EstablishingSolver().establish(vals)
-
-# For test:
-values = np.append(values, -0.353)
-values = np.append(values, 0.3)
-values = np.append(values, 0.353)
-values = np.append(values, 0.3)
-values = np.append(values, 3*np.pi/8)
-print(EstablishingSolver().get_system_values(values))
+# # Add data from GUI here.
+# vals = [0.0, 0.0, 0.3, 0.0, 0.0, -0.353, 0.3, 0.353, 0.3, 3*np.pi/8]
+# values = EstablishingSolver().establish(vals)
+#
+# # For test:
+# values = np.append(values, -0.353)
+# values = np.append(values, 0.3)
+# values = np.append(values, 0.353)
+# values = np.append(values, 0.3)
+# values = np.append(values, 3*np.pi/8)
+# print(EstablishingSolver().get_system_values(values))
