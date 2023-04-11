@@ -72,7 +72,7 @@ class EstablishingSolver(object):
 
 
 
-# Add data from GUI here
+# Add data from GUI here.
 vals = [0.0, 0.0, 0.3, 0.0, 0.0, -0.353, 0.3, 0.353, 0.3, 3*np.pi/8]
 values = EstablishingSolver().establish(vals)
 
