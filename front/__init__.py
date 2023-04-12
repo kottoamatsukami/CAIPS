@@ -1,4 +1,7 @@
 import os
+
+import numpy as np
+
 import libs
 import plyer
 import pickle
@@ -7,7 +10,7 @@ import numpy
 import dearpygui.dearpygui as dpg
 import front.gui_parameters as gp
 from dearpygui_ext import logger
-from back import establishing_solver, tracking_dynamics
+from back import establishing_solver, tracking_dynamics, two_tier_air_cushion
 from PIL import Image, ImageSequence
 
 
@@ -395,11 +398,6 @@ class GUI(object):
             solution = solver.establish(values=vector, logger=self.log_message)
             solver.make_animation(solution)
 
-            # Draw in Canvas
-            self.update_canvas(
-                "saved_parameters/temp.gif",
-            )
-
         elif self.current_mode == 2:
             # 6 score
             vector = [
@@ -421,17 +419,27 @@ class GUI(object):
             solution = solver.find_solution(values=vector, logger=self.log_message)
             solver.make_animation(solution)
 
-            # Draw in Canvas
-            self.update_canvas(
-                "saved_parameters/temp.gif",
-            )
-
         else:
-            self.log_message(
-                msg="BRANCH NOT IMPLEMENTED",
-                type_="critical",
-            )
+            # 8 score
+            solution = {
+                key: 0
+                for key in [
+                    "x1", "x2", "x3", "x4", "x5",
+                    "y1", "y2", "y3", "y4", "y5",
+                    "r1", "r2", "r3", "r4", "r5",
+                    "alpha1", "alpha2", "alpha3", "alpha4", "alpha5",
+                    "phi1", "phi2", "phi3", "phi4", "phi5",
+                ]
+            }
+            solver = two_tier_air_cushion.TwoTierSolver(self.parameters)
+            self.log_message(f"Used following vector: {solution}")
+            self.log_message("Started calculating for third mode...")
+            solver.makePlot(solution)
 
+        # Draw in Canvas
+        self.update_canvas(
+            "saved_parameters/temp.gif",
+        )
     # -----------------
     # Sliders Callbacks
     # -----------------
