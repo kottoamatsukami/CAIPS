@@ -8,7 +8,7 @@ import dearpygui.dearpygui as dpg
 import front.gui_parameters as gp
 from dearpygui_ext import logger
 from back import establishing_solver, tracking_dynamics
-from PIL import Image
+from PIL import Image, ImageSequence
 
 
 class GUI(object):
@@ -75,6 +75,10 @@ class GUI(object):
                     dpg.add_menu_item(
                         label="Load Parameters",
                         callback=self.callback_load_parameters
+                    )
+                    dpg.add_menu_item(
+                        label="Open Last GIF",
+                        callback=self.callback_open_last_gif,
                     )
                     dpg.add_menu_item(
                         label="Credits",
@@ -352,6 +356,12 @@ class GUI(object):
                 type_="critical",
             )
 
+
+    def callback_open_last_gif(self):
+        if os.path.exists("saved_parameters/temp.gif"):
+            self.update_canvas(
+                gif_path="saved_parameters/temp.gif")
+
     @staticmethod
     def callback_show_credits():
         import webbrowser
@@ -539,11 +549,11 @@ class GUI(object):
                 tag="current image"
             )
 
-    def update_canvas(self, gif_path: str, sleep=1):
+    def update_canvas(self, gif_path: str, sleep=0.05):
         # Open GIF
         img = Image.open(gif_path)
 
-        for part in img.split():
+        for part in ImageSequence.Iterator(img):
             part = part.convert("RGBA")
             part = numpy.frombuffer(part.tobytes(), dtype=numpy.uint8) / 255.0
             dpg.set_value("current image", part)

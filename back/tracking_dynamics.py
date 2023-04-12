@@ -126,26 +126,4 @@ class DynamicsSolver(object):
 
         animation = camera.animate()
         plt.show()
-        animation.save('temp.gif')
-
-
-
-STD_PARAMETERS = {
-            "Ax": -0.353,
-            "Ay": 0.3,
-            "Bx": 0.353,
-            "By": 0.3,
-            "Rt": 0.30 * 2,
-            "Rb": 0.19 * 2,
-            "Pt0": 12000 * 2,
-            "Pb0": 4000 * 2,
-            "Pac": 2000,
-            "Xtop": 0,
-            "Ytop": 0.65 * 2,
-            "Xbot": 0,
-            "Ybot": 0.22 * 2,
-            "alpha5": 3*math.pi/2,
-}
-vals = [1, 1, 0.3, 1, 1, -0.353, 0.3, 0.353, 0.3, 3*np.pi/8, 0]
-data = DynamicsSolver(STD_PARAMETERS).find_solution(vals, print)
-DynamicsSolver(STD_PARAMETERS).make_animation(data)
+        animation.save('saved_parameters/temp.gif')

@@ -36,16 +36,13 @@ class EstablishingSolver(object):
 
         key = 0
         epoch = 0
-        while (key == 0 or np.linalg.norm(abs(X[0]-X[1]), ord=2) > EPS):
+        while key == 0 or np.linalg.norm(abs(X[0]-X[1]), ord=2) > EPS:
             X[0] = X[1].copy()
             system_vals = self.get_system_values(values)
             for i in range(5):
                 X[1][i] = X[1][i] - system_vals[i] * TAU
                 values[i] = X[1][i]
             key = 1
-
-
-
             if epoch % 250 == 0:
                 logger(f"epoch[{epoch}]: norm={np.linalg.norm(abs(X[0]-X[1]), ord=2)}")
             # Critical
@@ -106,33 +103,3 @@ class EstablishingSolver(object):
         im = Image.open("saved_parameters/temp.png")
         im.save("saved_parameters/temp.gif")
 
-
-
-STD_PARAMETERS = {
-            "Ax": -0.353,
-            "Ay": 0.3,
-            "Bx": 0.353,
-            "By": 0.3,
-            "Rt": 0.30 * 2,
-            "Rb": 0.19 * 2,
-            "Pt0": 12000 * 2,
-            "Pb0": 4000 * 2,
-            "Pac": 2000,
-            "Xtop": 0,
-            "Ytop": 0.65 * 2,
-            "Xbot": 0,
-            "Ybot": 0.22 * 2,
-            "alpha5": 3*np.pi/2,
-}
-
-# # Add data from GUI here.
-# vals = [0.0, 0.0, 0.3, 0.0, 0.0, -0.353, 0.3, 0.353, 0.3, 3*np.pi/8]
-# values = EstablishingSolver(parameters=STD_PARAMETERS).establish(vals, logger=print)
-#
-# # For test:
-# values = np.append(values, -0.353)
-# values = np.append(values, 0.3)
-# values = np.append(values, 0.353)
-# values = np.append(values, 0.3)
-# values = np.append(values, 3*np.pi/8)
-# print(EstablishingSolver().get_system_values(values))
