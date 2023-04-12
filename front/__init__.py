@@ -1,33 +1,28 @@
-import os
-
-import dearpygui.dearpygui as dpg
-from dearpygui_ext import logger
-from libs import error_handler
+import os  # Working with the operating system
+import libs  # Working with STD files
+import plyer  # Working with file dialog
+import pickle  # Working with pickled files
 import math
+import time
+import numpy
+from matplotlib import pyplot as plt, patches as pth
+import dearpygui.dearpygui as dpg  # Working with GUI
+import front.gui_parameters as gp  # Working with GUI parameters
+from dearpygui_ext import logger  # Working with logger
+from back import establishing_solver  # Working with solver
+from PIL import Image
 
 
-class GUI:
-    def __init__(self, settings: dict, debug_mode=False):
+class GUI(object):
+    def __init__(self, settings: dict, debug_mode=False) -> None:
+        self.do_log = False
+        self.logger = None
         self.settings = settings
         self.debug_mode = debug_mode
-        self.log = False
-        self.logger = None
-        self.parameters = {
-            "Ax": 0,
-            "Ay": 0.95 * 2,
-            "Bx": 0.30 * 2,
-            "By": 0.65 * 2,
-            "Rt": 0.30 * 2,
-            "Rb": 0.19 * 2,
-            "Pt0": 12000 * 2,
-            "Pb0": 4000 * 2,
-            "Pac": 2000,
-            "Xtop": 0,
-            "Ytop": 0.65 * 2,
-            "Xbot": 0,
-            "Ybot": 0.22 * 2,
-            "alpha5": 3*math.pi/2,
-        }
+
+        self.current_mode = 1
+        self.root = os.getcwd()
+        self.parameters = libs.STD_PARAMETERS
 
     def run(self):
         # ------------------------
@@ -38,42 +33,55 @@ class GUI:
             title=self.settings["title"],
             height=self.settings["height"],
             width=self.settings["width"],
-            small_icon="front/icons/wing_small.ico",
-            large_icon="front/icons/wing_large.ico",
+            small_icon=self.settings["small_icon_path"],
+            large_icon=self.settings["large_icon_path"],
             min_width=self.settings["min_width"],
             min_height=self.settings["min_height"],
         )
-
+        # Enable debug info
         if self.debug_mode:
             dpg.show_debug()
             dpg.show_metrics()
             dpg.show_style_editor()
 
-        # Main window
+        # Generate Main window
         with dpg.window(tag="Primary Window"):
-
             # Process Button
-            width, height, channels, data = dpg.load_image("./front/img/play_button.png")
+            width, height, channels, data = dpg.load_image(gp.play_button_path)
             with dpg.texture_registry():
                 dpg.add_static_texture(width=width, height=height, default_value=data, tag="Process Button")
+
             dpg.add_image_button(
                 texture_tag="Process Button",
-                width=90,
-                height=90,
+                width=gp.play_button_width,
+                height=gp.play_button_height,
                 pos=(
-                    dpg.get_viewport_width()//2 - 45,
-                    dpg.get_viewport_height()//2 - 90,
+                    dpg.get_viewport_width() // 2 - gp.play_button_x_padding,
+                    dpg.get_viewport_height() // 2 - gp.play_button_y_padding,
                 ),
-                tag="Play_button"
+                tag="Play_Button",
+                callback=self.callback_play_button,
             )
 
             # Menu bar
             with dpg.menu_bar():
                 with dpg.menu(label="Options"):
-                    dpg.add_menu_item(label="Nodes", callback=self.callback_graph_editor)
-                    dpg.add_menu_item(label="Save Parameters (Ctrl+S)")
-                    dpg.add_menu_item(label="Load Parameters (Ctrl+L)")
-                    dpg.add_menu_item(label="Credits")
+                    dpg.add_menu_item(
+                        label="Nodes",
+                        callback=self.callback_graph_editor
+                    )
+                    dpg.add_menu_item(
+                        label="Save Parameters",
+                        callback=self.callback_save_parameters
+                    )
+                    dpg.add_menu_item(
+                        label="Load Parameters",
+                        callback=self.callback_load_parameters
+                    )
+                    dpg.add_menu_item(
+                        label="Credits",
+                        callback=self.callback_show_credits,
+                    )
 
                 with dpg.menu(label="Themes"):
                     dpg.add_menu_item(label="Theme editor", callback=self.callback_show_theme_editor)
@@ -83,94 +91,116 @@ class GUI:
                     dpg.add_menu_item(label="Show About")
 
                 with dpg.menu(label="Mode"):
-                    dpg.add_menu_item(label="(1) Bouncing air cushion")
-                    dpg.add_menu_item(label="(2) Double-deck air cushion with side pressure")
+                    dpg.add_menu_item(
+                        label=gp.first_mode + (gp.current_mode_arrow
+                                               if self.current_mode == 1
+                                               else ""),
+                        callback=self.callback_set_mode,
+                        id="mode 1",
+                    )
+                    dpg.add_menu_item(
+                        label=gp.second_mode + (gp.current_mode_arrow
+                                                if self.current_mode == 2
+                                                else ""),
+                        callback=self.callback_set_mode,
+                        id="mode 2",
+                    )
+                    dpg.add_menu_item(
+                        label=gp.third_mode + (gp.current_mode_arrow
+                                               if self.current_mode == 3
+                                               else ""),
+                        callback=self.callback_set_mode,
+                        id="mode 3",
+                    )
 
             with dpg.window(
                     no_resize=True,
                     no_move=True,
                     no_close=True,
                     no_title_bar=True,
-                    no_scrollbar=True,
-                    width=500,
-                    height=500,
+                    no_scrollbar=gp.sm_scrollbar,
+                    no_background=gp.sm_background,
+                    width=gp.sm_width,
+                    height=gp.sm_height,
                     tag="Side_menu",
-                ):
+            ):
                 dpg.add_text(label="side menu", default_value="Parameters")
                 dpg.add_slider_double(label="Ax", tag="slider_Ax",
-                                      min_value=-10, max_value=10,
+                                      min_value=gp.slider_Ax[0], max_value=gp.slider_Ax[1],
                                       default_value=self.parameters["Ax"],
                                       callback=self.universal_slider_callback)
                 dpg.add_slider_double(label="Ay", tag="slider_Ay",
-                                      min_value=-10, max_value=10,
+                                      min_value=gp.slider_Ay[0], max_value=gp.slider_Ay[1],
                                       default_value=self.parameters["Ay"],
                                       callback=self.universal_slider_callback)
                 dpg.add_slider_double(label="Bx", tag="slider_Bx",
-                                      min_value=-10, max_value=10,
+                                      min_value=gp.slider_Bx[0], max_value=gp.slider_Bx[1],
                                       default_value=self.parameters["Bx"],
                                       callback=self.universal_slider_callback)
                 dpg.add_slider_double(label="By", tag="slider_By",
-                                      min_value=-10, max_value=10,
+                                      min_value=gp.slider_By[0], max_value=gp.slider_By[1],
                                       default_value=self.parameters["By"],
                                       callback=self.universal_slider_callback)
                 dpg.add_slider_double(label="Xtop", tag="slider_Xtop",
-                                      min_value=-10, max_value=10,
+                                      min_value=gp.slider_Xtop[0], max_value=gp.slider_Xtop[1],
                                       default_value=self.parameters["Xtop"],
                                       callback=self.universal_slider_callback)
                 dpg.add_slider_double(label="Ytop", tag="slider_Ytop",
-                                      min_value=-10, max_value=10,
+                                      min_value=gp.slider_Ytop[0], max_value=gp.slider_Ytop[1],
                                       default_value=self.parameters["Ytop"],
                                       callback=self.universal_slider_callback)
                 dpg.add_slider_double(label="Xbot", tag="slider_Xbot",
-                                      min_value=-10, max_value=10,
+                                      min_value=gp.slider_Xbot[0], max_value=gp.slider_Xbot[1],
                                       default_value=self.parameters["Xbot"],
                                       callback=self.universal_slider_callback)
                 dpg.add_slider_double(label="Ybot", tag="slider_Ybot",
-                                      min_value=-10, max_value=10,
+                                      min_value=gp.slider_Ybot[0], max_value=gp.slider_Ybot[1],
                                       default_value=self.parameters["Ybot"],
                                       callback=self.universal_slider_callback)
                 dpg.add_slider_double(label="Rt", tag="slider_Rt",
-                                      min_value=-10, max_value=10,
+                                      min_value=gp.slider_Rt[0], max_value=gp.slider_Rt[1],
                                       default_value=self.parameters["Rt"],
                                       callback=self.universal_slider_callback)
                 dpg.add_slider_double(label="Rb", tag="slider_Rb",
-                                      min_value=-10, max_value=10,
+                                      min_value=gp.slider_Rb[0], max_value=gp.slider_Rb[1],
                                       default_value=self.parameters["Rb"],
                                       callback=self.universal_slider_callback)
                 dpg.add_slider_double(label="Pt0", tag="slider_Pt0",
-                                      min_value=-50000, max_value=50000,
+                                      min_value=gp.slider_Pt0[0], max_value=gp.slider_Pt0[1],
                                       default_value=self.parameters["Pt0"],
                                       callback=self.universal_slider_callback)
                 dpg.add_slider_double(label="Pb0", tag="slider_Pb0",
-                                      min_value=-10000, max_value=10000,
+                                      min_value=gp.slider_Pb0[0], max_value=gp.slider_Pb0[1],
                                       default_value=self.parameters["Pb0"],
                                       callback=self.universal_slider_callback)
                 dpg.add_slider_double(label="Pac", tag="slider_Pac",
-                                      min_value=-10000, max_value=10000,
+                                      min_value=gp.slider_Pac[0], max_value=gp.slider_Pac[1],
                                       default_value=self.parameters["Pac"],
                                       callback=self.universal_slider_callback)
                 dpg.add_slider_double(label="alpha5", tag="slider_alpha5",
-                                      min_value=0, max_value=360,
+                                      min_value=gp.slider_alpha5[0], max_value=gp.slider_alpha5[1],
                                       default_value=self.parameters["alpha5"],
                                       callback=self.universal_slider_callback)
+
+                dpg.add_tab_bar()
+                dpg.add_text("Set the exact values: <name> <value> <$>")
+                dpg.add_input_text(callback=self.callback_set_parameter)
 
             with dpg.window(
                     no_resize=True,
                     no_move=True,
                     no_close=True,
                     no_title_bar=True,
-                    no_scrollbar=True,
-                    width=500,
-                    height=500,
+                    no_background=gp.cm_background,
+                    no_scrollbar=gp.cm_scrollbar,
+                    width=gp.cm_width,
+                    height=gp.cm_height,
                     tag="Canvas_window",
             ):
                 dpg.add_text(default_value="Canvas")
-                with dpg.drawlist(
-                    width=500,
-                    height=500,
-                    tag="canvas",
-                ):
-                    dpg.draw_line(0, 5)
+                self.init_canvas()
+                dpg.add_image("current image")
+
 
         dpg.setup_dearpygui()
 
@@ -181,42 +211,39 @@ class GUI:
 
         dpg.destroy_context()
 
-    def _init_std_settings(self):
-        None
-
     @staticmethod
     def callback_resize_viewport_window():
         dpg.set_item_pos(
             item="Side_menu",
             pos=(
                 dpg.get_viewport_width() - dpg.get_item_width(item="Side_menu"),
-                dpg.get_viewport_height()//2 - dpg.get_item_height(item="Side_menu")//2,
+                dpg.get_viewport_height() // 2 - dpg.get_item_height(item="Side_menu") // 2,
             ),
         )
         dpg.set_item_pos(
             item="Canvas_window",
             pos=(
                 0,
-                dpg.get_viewport_height()//2 - dpg.get_item_height(item="Canvas_window")//2,
+                dpg.get_viewport_height() // 2 - dpg.get_item_height(item="Canvas_window") // 2,
             ),
         )
 
         dpg.set_item_pos(
-            item="Play_button",
+            item="Play_Button",
             pos=(
-                dpg.get_viewport_width() // 2 - dpg.get_item_width(item="Play_button")//2,
-                dpg.get_viewport_height() // 2 - dpg.get_item_height(item="Play_button"),
+                dpg.get_viewport_width() // 2 - dpg.get_item_width(item="Play_Button") // 2,
+                dpg.get_viewport_height() // 2 - dpg.get_item_height(item="Play_Button"),
             ),
         )
 
     def callback_show_logger(self):
-        self.log = True
+        self.do_log = True
         self.logger = logger.mvLogger()
         self.log_message("Starting log...")
 
     def log_message(self, msg: str, type_="info"):
         # "type_ can be either 'info', 'warning' or 'critical'"
-        if self.log and type_ in ["info", "warning", "critical"]:
+        if self.do_log and type_ in ["info", "warning", "critical"]:
             if type_ == "info":
                 self.logger.log_info(msg)
             if type_ == "warning":
@@ -230,10 +257,10 @@ class GUI:
     def callback_show_theme_editor(self):
         # Load fonts
         with dpg.font_registry():
-            for font in os.listdir("./front/fonts"):
+            for font in os.listdir(os.path.join(self.root, "front/fonts")):
                 if font.endswith(".ttf") or font.endswith(".otf"):
                     dpg.add_font(
-                        file="./front/fonts/" + font,
+                        file=os.path.join(self.root, "front/fonts", font),
                         size=20
                     )
                     self.log_message(msg=f"Font {font} was added to theme editor", type_="info")
@@ -242,11 +269,148 @@ class GUI:
         dpg.show_style_editor()
 
     # -----------------
+    # Post Slider Input
+    # -----------------
+    def callback_set_parameter(self, sender, value):
+        if len(value.split()) == 3:
+            variable, value, end = value.split()
+            if end != "$":
+                return
+            if variable not in self.parameters.keys():
+                self.log_message(msg=f"Unknown parameter: {variable}", type_="warning")
+            else:
+                self.universal_slider_callback(
+                    sender="slider_" + variable,
+                    app_data=float(value),
+                )
+
+    # ------------------
+    # Menu Bar Callbacks
+    # ------------------
+    def callback_set_mode(self, sender):
+        # Remove old using
+        old = "mode " + str(self.current_mode)
+        dpg.set_item_label(
+            item=old,
+            label=dpg.get_item_label(
+                item=old,
+            ).replace(gp.current_mode_arrow, "").strip()
+        )
+        # Add new using
+        self.current_mode = int(sender[-1])
+        dpg.set_item_label(
+            item=sender,
+            label=dpg.get_item_label(
+                item=sender,
+            ).replace(gp.current_mode_arrow, "").strip() + " " + gp.current_mode_arrow
+        )
+        # Logging
+        self.log_message(
+            msg=f"Change script mode from <{old}> to <{sender}>",
+            type_="info",
+        )
+
+    def callback_save_parameters(self):
+        path = plyer.filechooser.save_file(
+            path=os.getcwd(),
+            title="Save parameter file",
+            filters=["*.caips"]
+        )
+        if len(path) == 0:
+            return
+        path = path[0].replace(".caips", "")
+        with open(path + ".caips", "wb") as f:
+            pickle.dump(self.parameters, f)
+            self.log_message("Successfully saved parameters")
+
+    def callback_load_parameters(self):
+        path = plyer.filechooser.open_file(
+            path=os.getcwd(),
+            title="Chose parameter file",
+            filters=["*.caips"]
+        )
+        if len(path) == 0:
+            return
+        path = path[0]
+        if os.path.exists(path) and len(path) > 0:
+            if path.endswith(".caips"):
+                with open(path, "rb") as f:
+                    self.parameters = pickle.load(f)
+                    for key in self.parameters.keys():
+                        self.update_slider(
+                            sender="slider_" + key,
+                            value=self.parameters[key],
+                        )
+                    self.log_message("Successfully loaded new parameters")
+
+            else:
+                self.log_message(
+                    msg=f"Unknown file extension: {path}",
+                    type_="critical",
+                )
+        else:
+            self.log_message(
+                msg=f"Unknown file path: {path}",
+                type_="critical",
+            )
+
+    @staticmethod
+    def callback_show_credits():
+        import webbrowser
+        webbrowser.open(
+            url="https://github.com/kottoamatsukami/CAIPS/graphs/contributors"
+        )
+
+    # -----------------
+    # Play Button callback
+    # -----------------
+    def callback_play_button(self, sender):
+        # Determine target mode
+
+        if self.current_mode == 1:
+            # 4 score
+            vector = [
+                0,  # x1
+                0,  # x2
+                0,  # y
+                0,  # phi1
+                0,  # phi2
+                self.parameters["Ax"],
+                self.parameters["Ay"],
+                self.parameters["Bx"],
+                self.parameters["By"],
+                0,  # C
+            ]
+            solver = establishing_solver.EstablishingSolverV4()
+            self.log_message(f"Used following vector: {vector}")
+            self.log_message("Started calculating for first mode...")
+            solution = solver.establish(values=vector, logger=self.log_message)
+            print(solution)
+
+            # ------------
+            # Using Canvas
+            # ------------
+
+            self.low_graphing(solution)
+
+
+            plt.show()
+        else:
+            self.log_message(
+                msg="BRANCH NOT IMPLEMENTED",
+                type_="critical",
+            )
+
+    # -----------------
     # Sliders Callbacks
     # -----------------
+    @staticmethod
+    def update_slider(sender, value):
+        dpg.set_value(sender, value)
 
     def universal_slider_callback(self, sender, app_data):
         user_data = dpg.get_item_label(sender)
+        self.update_slider(sender, app_data)
         self.log_message(msg=f"Slider {user_data} [{self.parameters[user_data]:.3f}] -> [{app_data:.3f}]", type_="info")
         self.parameters[user_data] = app_data
 
@@ -254,20 +418,169 @@ class GUI:
     # Node Graph
     # -----------------
     def callback_graph_editor(self):
-        with dpg.window(
-                label="Options",
-                width=dpg.get_viewport_width()//1.5,
-                height=dpg.get_viewport_height()//1.5,
-                pos=(0, 0),
+        if dpg.does_item_exist("Node Editor Window"):
+            dpg.show_item("Node Editor Window")
+        else:
+            with dpg.window(
+                    label="Node Editor",
+                    width=dpg.get_viewport_width() // 1.5,
+                    height=dpg.get_viewport_height() // 1.5,
+                    pos=(0, 0),
+                    tag="Node Editor Window"
 
-        ):
-            with dpg.node_editor(callback=self.callback_link_node, delink_callback=self.callback_unlink_node):
-                with dpg.node(label="Ax"):
-                    with dpg.node_attribute(label="Node A1"):
-                        dpg.add_input_float(label="F1", width=150)
+            ):
+                with dpg.menu_bar():
+                    dpg.add_menu_item(
+                        label="Add float value",
+                        callback=self.callback_add_float_node
+                    )
+                    dpg.add_menu_item(
+                        label="Delete",
+                        callback=self.callback_unlink_node
+                    )
+                with dpg.node_editor(
+                        callback=self.callback_link_node,
+                        delink_callback=self.callback_unlink_node,
+                        label="Node_Editor",
+                        tag="NE",
+                ):
+                    for i, key in enumerate(self.parameters):
+                        with dpg.node(
+                                label=key,
+                                pos=(gp.ns_x_padding, gp.ns_y_padding * i)):
+                            with dpg.node_attribute(label=key, tag="Parameter_"+key,):
+                                dpg.add_input_float(
+                                    width=gp.ns_parameter_node_size,
+                                    default_value=self.parameters[key],
+                                    tag="Parameter_"+key+"_value"
+                                )
+
+                        self.callback_add_float_node()
+                with dpg.handler_registry():
+                    dpg.add_key_press_handler(dpg.mvKey_Delete, callback=self.callback_unlink_node)
+                    dpg.add_key_press_handler(dpg.mvKey_Back, callback=self.callback_unlink_node)
+
+    def callback_add_float_node(self):
+        with dpg.node(
+                label="Float Value",
+                tag="fn_"+gp.W_count_of_float_nodes,
+                parent="NE",
+                pos=(0, int(gp.W_count_of_float_nodes)*gp.ns_y_padding)):
+            dpg.add_node_attribute(
+                tag="fn_"+gp.W_count_of_float_nodes+"_attr",
+                attribute_type=dpg.mvNode_Attr_Output,
+                parent="fn_"+gp.W_count_of_float_nodes
+            )
+            dpg.add_input_float(
+                parent="fn_"+gp.W_count_of_float_nodes+"_attr",
+                width=gp.ns_float_node_size,
+                tag="fn_"+gp.W_count_of_float_nodes+"_attr"+"_value",
+            )
+            dpg.add_input_text(
+                parent="fn_"+gp.W_count_of_float_nodes+"_attr",
+                default_value="Rename Block: ",
+                width=gp.ns_float_node_size,
+            )
+
+        gp.W_count_of_float_nodes = str(int(gp.W_count_of_float_nodes)+1)
 
     def callback_link_node(self, sender, app_data):
-        None
+        dpg.add_node_link(app_data[0], app_data[1], parent=sender)
+        if "attr" in app_data[0] and "Parameter" in app_data[1]:
+            dpg.set_value(
+                item=app_data[1]+"_value",
+                value=dpg.get_value(app_data[0]+"_value"),
+            )
+            self.universal_slider_callback(
+                sender="slider_"+app_data[1].replace("Parameter_", ""),
+                app_data=dpg.get_value(app_data[0]+"_value"),
+            )
 
     def callback_unlink_node(self, sender, app_data):
-        None
+        for link in dpg.get_selected_links("NE") + dpg.get_selected_nodes("NE"):
+            if dpg.get_item_label(link) not in self.parameters.keys():
+                dpg.delete_item(link)
+
+    @staticmethod
+    def euclidean_distance(p1: tuple, p2: tuple) -> float:
+        return math.sqrt(
+            (p1[0] - p2[0])**2 + (p1[1] - p2[1])**2
+        )
+
+    def low_graphing(self, vector: list[float]):
+        fig, axs = plt.subplots(1, 1, figsize=(5, 5))
+        axs.set_aspect("equal")
+        r1 = self.euclidean_distance(
+            p1=(self.parameters["Ax"], self.parameters["Ay"]),
+            p2=(vector[0], vector[2]),
+        )
+        r2 = self.euclidean_distance(
+            p1=(self.parameters["Bx"], self.parameters["By"]),
+            p2=(vector[1], vector[2]),
+        )
+
+        # Line AB
+        axs.plot((self.parameters["Ax"], self.parameters["Bx"]), (self.parameters["Ay"], self.parameters["By"]),
+                 color='black')
+        # Line X1X2
+        axs.plot((vector[0], vector[1]), (0, 0),
+                 color='black')
+
+        arc1 = pth.Arc(
+            xy=(vector[0], vector[2]),
+            width=r1*2,
+            height=r1*2,
+            angle=0,
+            theta1=(self.parameters["alpha5"] - vector[3]) * 180 / math.pi,
+            theta2=(self.parameters["alpha5"] * 180 / math.pi),
+
+        )
+        axs.add_patch(arc1)
+
+        arc2 = pth.Arc(
+            xy=(vector[1], vector[2]),
+            width=r2 * 2,
+            height=r2 * 2,
+            angle=270,
+            theta1=0,
+            theta2=vector[4] * 180 / math.pi,
+
+        )
+        axs.add_patch(arc2)
+
+        # Convert to GIF format
+        fig.savefig("saved_parameters/temp.png")
+        im = Image.open("saved_parameters/temp.png")
+        im.save("saved_parameters/temp.gif")
+        self.update_canvas(
+            "saved_parameters/temp.gif",
+            sleep=0.1
+        )
+
+    @staticmethod
+    def init_canvas():
+        texture_data = []
+        for i in range(dpg.get_item_height("Canvas_window")*dpg.get_item_width("Canvas_window")):
+            texture_data.append(255/255)
+            texture_data.append(0)
+            texture_data.append(255/255)
+            texture_data.append(255/255)
+        with dpg.texture_registry():
+            dpg.add_dynamic_texture(
+                width=dpg.get_item_width("Canvas_window"),
+                height=dpg.get_item_height("Canvas_window"),
+                default_value=texture_data,
+                tag="current image"
+            )
+
+    def update_canvas(self, gif_path: str, sleep=1):
+        # Open GIF
+        img = Image.open(gif_path)
+
+        for part in img.split():
+            part = part.convert("RGBA")
+            part = numpy.frombuffer(part.tobytes(), dtype=numpy.uint8) / 255.0
+            dpg.set_value("current image", part)
+            time.sleep(sleep)
+
+
