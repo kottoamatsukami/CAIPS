@@ -1,4 +1,4 @@
-import establishing_solver
+from back import establishing_solver
 import numpy as np
 import math
 from matplotlib import pyplot as plt, patches as pth
@@ -11,16 +11,20 @@ DTIME = 0.01
 
 alpha5 = 3*math.pi/2
 
+
 class DynamicsSolver(object):
 
     global M, P, G, DTIME
     global alpha5
 
+    def __init__(self, parameters):
+        self.parameters = parameters
+
     @staticmethod
     def Dvdt(l: float) -> float:
         return 1/M * (P * l - M * G)
 
-    def find_solution(self, values: list[float]) -> float:
+    def find_solution(self, values: list[float], logger) -> float:
         # -----------------------------------
         # structure
         # values = {
@@ -38,13 +42,12 @@ class DynamicsSolver(object):
         # }
         # -----------------------------------
         data = [[0 for i in range(9)] for _ in range(250)]
-
         for t in range(250):
             for j in range(len(data[0])):
                 data[t][j] = values[j]
             values[6] = values[6] + values[10] * DTIME
             values[8] = values[6]
-            X = establishing_solver.EstablishingSolver().establish(values)
+            X = establishing_solver.EstablishingSolver(parameters=self.parameters).establish(values, logger)
             for i in range(3):
                 values[i] = X[i]
             l = abs(values[1] - values[0])
@@ -58,7 +61,7 @@ class DynamicsSolver(object):
             (p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2
         )
 
-    def make_animation(self, matrix: float):
+    def make_animation(self, matrix: list[list[float]]):
         # -----------------------------------
         # structure
         # matrix[i] = {
@@ -73,14 +76,10 @@ class DynamicsSolver(object):
         # matrix[i]_9 : By = from user
         # }
         # -----------------------------------
-        fig = plt.figure()
+        fig = plt.figure(figsize=(5, 5))
         axs = plt.subplot()
 
         plt.grid(linestyle='--')
-        axs.set(xlim=[-0.45, 0.45],
-                ylim=[0, 0.35],
-
-        )
         axs.set_aspect('equal')
 
         camera = Camera(fig)
@@ -127,9 +126,26 @@ class DynamicsSolver(object):
 
         animation = camera.animate()
         plt.show()
-        animation.save('animation.gif')
+        animation.save('temp.gif')
 
 
-# vals = [0.0, 0.0, 0.3, 0.0, 0.0, -0.353, 0.3, 0.353, 0.3, 3*np.pi/8, 0]
-# data = DynamicsSolver().find_solution(vals)
-# DynamicsSolver().make_animation(data)
+
+STD_PARAMETERS = {
+            "Ax": -0.353,
+            "Ay": 0.3,
+            "Bx": 0.353,
+            "By": 0.3,
+            "Rt": 0.30 * 2,
+            "Rb": 0.19 * 2,
+            "Pt0": 12000 * 2,
+            "Pb0": 4000 * 2,
+            "Pac": 2000,
+            "Xtop": 0,
+            "Ytop": 0.65 * 2,
+            "Xbot": 0,
+            "Ybot": 0.22 * 2,
+            "alpha5": 3*math.pi/2,
+}
+vals = [1, 1, 0.3, 1, 1, -0.353, 0.3, 0.353, 0.3, 3*np.pi/8, 0]
+data = DynamicsSolver(STD_PARAMETERS).find_solution(vals, print)
+DynamicsSolver(STD_PARAMETERS).make_animation(data)

@@ -1,11 +1,19 @@
 import pickle
 import numpy as np
+from PIL import Image
+from matplotlib import pyplot as plt, patches as pth
+
 
 EPS = 1e-7
 TAU = 0.9
+
+
 class EstablishingSolver(object):
 
     global EPS, TAU
+
+    def __init__(self, parameters):
+        self.parameters = parameters
 
     @staticmethod
     def load(path: str) -> dict:
@@ -14,48 +22,20 @@ class EstablishingSolver(object):
         return data
 
     def get_system_values(self, values: list[float]) -> list[float]:
-        # ----------------------------------------
-        # structure
-        # values = {
-        # value_1 : x1_0 = 0
-        # value_2 : x2_0 = 0
-        # value_3 : y_0 = Ay = By
-        # value_4 : phi1_0 = 0
-        # value_5 : phi2_0 = 0
-        # value_6 : Ax
-        # value_7 : Ay
-        # value_8 : Bx
-        # value_9 : By
-        # value_10 : C
-        # }
-        # ----------------------------------------
-        F = np.zeros(5)
-        F[0] = values[0] + values[2] * np.cos(3*np.pi/2 - values[3]) - values[5]
-        F[1] = values[1] + values[2] * np.cos(3*np.pi/2 + values[4]) - values[7]
-        F[2] = values[2] + values[2] * np.sin(3*np.pi/2 - values[3]) - values[6]
-        F[3] = ((values[3] + values[4]) * values[2] + (values[1] - values[0]) - values[9])
-        F[4] = (values[2] + values[2] * np.sin(3*np.pi/2 + values[4]) - values[8])
-        return F
+        f = np.zeros(5)
+        f[0] = values[0] + values[2] * np.cos(3*np.pi/2 - values[3]) - values[5]
+        f[1] = values[1] + values[2] * np.cos(3*np.pi/2 + values[4]) - values[7]
+        f[2] = values[2] + values[2] * np.sin(3*np.pi/2 - values[3]) - values[6]
+        f[3] = ((values[3] + values[4]) * values[2] + (values[1] - values[0]) - values[9])
+        f[4] = (values[2] + values[2] * np.sin(3*np.pi/2 + values[4]) - values[8])
+        return f
 
-    def establish(self, values: list[float]) -> list[float]:
-        # ----------------------------------------
-        # structure
-        # values = {
-        # value_1 : x1_0 = 0
-        # value_2 : x2_0 = 0
-        # value_3 : y_0 = Ay = By
-        # value_4 : phi1_0 = 0
-        # value_5 : phi2_0 = 0
-        # value_6 : Ax
-        # value_7 : Ay
-        # value_8 : Bx
-        # value_9 : By
-        # value_10 : C
-        # }
-        # ----------------------------------------
-        X = [np.array([values[0], values[1], values[2], values[3], values[4]]) for _ in range(2)]
+    def establish(self, values: list[float], logger) -> list[float]:
+        # 5 7 6 3 4
+        X = [np.array([values[5], values[7], values[6], values[3], values[4]]) for _ in range(2)]
 
         key = 0
+        epoch = 0
         while (key == 0 or np.linalg.norm(abs(X[0]-X[1]), ord=2) > EPS):
             X[0] = X[1].copy()
             system_vals = self.get_system_values(values)
@@ -63,14 +43,91 @@ class EstablishingSolver(object):
                 X[1][i] = X[1][i] - system_vals[i] * TAU
                 values[i] = X[1][i]
             key = 1
-            # print("norm=", np.linalg.norm(abs(X[0]-X[1]), ord=2))
+
+
+
+            if epoch % 250 == 0:
+                logger(f"epoch[{epoch}]: norm={np.linalg.norm(abs(X[0]-X[1]), ord=2)}")
+            # Critical
+            if epoch >= 300_000 or np.linalg.norm(abs(X[0]-X[1]), ord=2) == np.inf:
+                logger("It cannot be solved", 'critical')
+                break
+            epoch += 1
         return X[1]
 
+    @staticmethod
+    def euclidean_distance(p1: tuple, p2: tuple) -> float:
+        return np.sqrt(
+            (p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2
+        )
 
+    def make_animation(self, vector: list[float]) -> None:
+        fig, axs = plt.subplots(1, 1, figsize=(5, 5))
+        axs.set_aspect("equal")
+        r1 = self.euclidean_distance(
+            p1=(self.parameters["Ax"], self.parameters["Ay"]),
+            p2=(vector[0], vector[2]),
+        )
+        r2 = self.euclidean_distance(
+            p1=(self.parameters["Bx"], self.parameters["By"]),
+            p2=(vector[1], vector[2]),
+        )
+        # Line AB
+        axs.plot((self.parameters["Ax"], self.parameters["Bx"]), (self.parameters["Ay"], self.parameters["By"]),
+                 color='black')
+        # Line X1X2
+        axs.plot((vector[0], vector[1]), (0, 0),
+                 color='black')
+
+        arc1 = pth.Arc(
+            xy=(vector[0], vector[2]),
+            width=r1 * 2,
+            height=r1 * 2,
+            angle=0,
+            theta1=(self.parameters["alpha5"] - vector[3]) * 180 / np.pi,
+            theta2=(self.parameters["alpha5"] * 180 / np.pi),
+
+        )
+        axs.add_patch(arc1)
+
+        arc2 = pth.Arc(
+            xy=(vector[1], vector[2]),
+            width=r2 * 2,
+            height=r2 * 2,
+            angle=270,
+            theta1=0,
+            theta2=vector[4] * 180 / np.pi,
+
+        )
+        axs.add_patch(arc2)
+
+        # Convert to GIF format
+        fig.savefig("saved_parameters/temp.png")
+        im = Image.open("saved_parameters/temp.png")
+        im.save("saved_parameters/temp.gif")
+
+
+
+STD_PARAMETERS = {
+            "Ax": -0.353,
+            "Ay": 0.3,
+            "Bx": 0.353,
+            "By": 0.3,
+            "Rt": 0.30 * 2,
+            "Rb": 0.19 * 2,
+            "Pt0": 12000 * 2,
+            "Pb0": 4000 * 2,
+            "Pac": 2000,
+            "Xtop": 0,
+            "Ytop": 0.65 * 2,
+            "Xbot": 0,
+            "Ybot": 0.22 * 2,
+            "alpha5": 3*np.pi/2,
+}
 
 # # Add data from GUI here.
 # vals = [0.0, 0.0, 0.3, 0.0, 0.0, -0.353, 0.3, 0.353, 0.3, 3*np.pi/8]
-# values = EstablishingSolver().establish(vals)
+# values = EstablishingSolver(parameters=STD_PARAMETERS).establish(vals, logger=print)
 #
 # # For test:
 # values = np.append(values, -0.353)
