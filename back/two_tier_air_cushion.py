@@ -32,6 +32,9 @@ class TwoTierSolver(object):
         f[13] = x["y4"] - x["r4"] + x["r5"] - x["y5"]
 
         # Calculating Overpressure
+
+        # Put your code here
+
         return f
 
     def findSolution(self, vector):
@@ -57,7 +60,7 @@ class TwoTierSolver(object):
     def makeAnimation(self, vector):
         ...
 
-    def makePlot(self, vector):
+    def makePlot(self, vector, rotate=False):
         # init PLT
         fig, axs = plt.subplots(figsize=(5, 5))
         axs.grid(linestyle='--')
@@ -73,6 +76,8 @@ class TwoTierSolver(object):
         # Convert to GIF format
         fig.savefig("saved_parameters/temp.png")
         im = Image.open("saved_parameters/temp.png")
+        if rotate:
+            im = im.rotate(180)
         im.save("saved_parameters/temp.gif")
 
 
