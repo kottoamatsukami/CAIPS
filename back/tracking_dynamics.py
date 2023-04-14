@@ -6,7 +6,7 @@ from celluloid import Camera
 
 M = 100
 P = 2000
-G = 9.8
+G = 9.81
 DTIME = 0.01
 
 alpha5 = 3*math.pi/2
@@ -65,15 +65,15 @@ class DynamicsSolver(object):
         # -----------------------------------
         # structure
         # matrix[i] = {
-        # matrix[i]_1 : x1_0 = 0
-        # matrix[i]_2 : x2_0 = 0
-        # matrix[i]_3 : y_0 = Ay = By
-        # matrix[i]_4 : phi1_0 = 0
-        # matrix[i]_5 : phi2_0 = 0
-        # matrix[i]_6 : Ax = from user
-        # matrix[i]_7 : Ay = from user
-        # matrix[i]_8 : Bx = from user
-        # matrix[i]_9 : By = from user
+        # matrix[i]_0 : x1_0 = 0
+        # matrix[i]_1 : x2_0 = 0
+        # matrix[i]_2 : y_0 = Ay = By
+        # matrix[i]_3 : phi1_0 = 0
+        # matrix[i]_4 : phi2_0 = 0
+        # matrix[i]_5 : Ax = from user
+        # matrix[i]_6 : Ay = from user
+        # matrix[i]_7 : Bx = from user
+        # matrix[i]_8 : By = from user
         # }
         # -----------------------------------
         fig = plt.figure(figsize=(5, 5))
@@ -125,5 +125,5 @@ class DynamicsSolver(object):
             camera.snap()
 
         animation = camera.animate()
-        plt.show()
+        # plt.show()
         animation.save('saved_parameters/temp.gif')
