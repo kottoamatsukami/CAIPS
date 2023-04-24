@@ -1,9 +1,7 @@
 import os
-
-import numpy as np
-
 import libs
-import plyer
+from tkinter import Tk
+from tkinter.filedialog import askopenfilename, asksaveasfilename
 import pickle
 import time
 import numpy
@@ -20,7 +18,6 @@ class GUI(object):
         self.logger = None
         self.settings = settings
         self.debug_mode = debug_mode
-
         self.current_mode = 1
         self.root = os.getcwd()
         self.parameters = libs.STD_PARAMETERS
@@ -178,10 +175,6 @@ class GUI(object):
                                       min_value=gp.slider_Pb0[0], max_value=gp.slider_Pb0[1],
                                       default_value=self.parameters["Pb0"],
                                       callback=self.universal_slider_callback)
-                dpg.add_slider_double(label="Pac", tag="slider_Pac",
-                                      min_value=gp.slider_Pac[0], max_value=gp.slider_Pac[1],
-                                      default_value=self.parameters["Pac"],
-                                      callback=self.universal_slider_callback)
                 dpg.add_slider_double(label="alpha5", tag="slider_alpha5",
                                       min_value=gp.slider_alpha5[0], max_value=gp.slider_alpha5[1],
                                       default_value=self.parameters["alpha5"],
@@ -190,6 +183,7 @@ class GUI(object):
                 dpg.add_tab_bar()
                 dpg.add_text("Set the exact values: <name> <value> <$>")
                 dpg.add_input_text(callback=self.callback_set_parameter)
+                self.callback_set_mode("mode 1")
 
             with dpg.window(
                     no_resize=True,
@@ -201,11 +195,14 @@ class GUI(object):
                     width=gp.cm_width,
                     height=gp.cm_height,
                     tag="Canvas_window",
+                    pos=(
+                        0,
+                        dpg.get_viewport_height() // 2 - gp.cm_height // 2,
+                    )
             ):
                 dpg.add_text(default_value="Canvas")
                 self.init_canvas()
                 dpg.add_image("current image")
-
 
         dpg.setup_dearpygui()
 
@@ -292,6 +289,18 @@ class GUI(object):
     # ------------------
     # Menu Bar Callbacks
     # ------------------
+
+    def slider_intersection(self, req: list):
+        for slider_type in self.parameters.keys():
+            if slider_type in req:
+                dpg.show_item(
+                    item=f"slider_{slider_type}"
+                )
+            else:
+                dpg.hide_item(
+                    item=f"slider_{slider_type}"
+                )
+
     def callback_set_mode(self, sender):
         # Remove old using
         old = "mode " + str(self.current_mode)
@@ -309,6 +318,18 @@ class GUI(object):
                 item=sender,
             ).replace(gp.current_mode_arrow, "").strip() + " " + gp.current_mode_arrow
         )
+        if self.current_mode == 1 or self.current_mode == 2:
+            self.slider_intersection(
+                req=["Ax", "Ay", "Bx", "By"]
+            )
+        else:
+            self.slider_intersection(
+                req=self.parameters.keys()
+            )
+
+
+
+
         # Logging
         self.log_message(
             msg=f"Change script mode from <{old}> to <{sender}>",
@@ -316,27 +337,24 @@ class GUI(object):
         )
 
     def callback_save_parameters(self):
-        path = plyer.filechooser.save_file(
-            path=os.getcwd(),
-            title="Save parameter file",
-            filters=["*.caips"]
+        Tk().withdraw()
+        path = asksaveasfilename(
+            initialdir=self.root,
         )
         if len(path) == 0:
             return
-        path = path[0].replace(".caips", "")
+        path = path.replace(".caips", "")
         with open(path + ".caips", "wb") as f:
             pickle.dump(self.parameters, f)
             self.log_message("Successfully saved parameters")
 
     def callback_load_parameters(self):
-        path = plyer.filechooser.open_file(
-            path=os.getcwd(),
-            title="Chose parameter file",
-            filters=["*.caips"]
+        Tk().withdraw()
+        path = askopenfilename(
+            initialdir=self.root,
         )
         if len(path) == 0:
             return
-        path = path[0]
         if os.path.exists(path) and len(path) > 0:
             if path.endswith(".caips"):
                 with open(path, "rb") as f:

@@ -2,15 +2,10 @@ import pickle
 import numpy as np
 from PIL import Image
 from matplotlib import pyplot as plt, patches as pth
-
-
-EPS = 1e-7
-TAU = 0.9
+import back
 
 
 class EstablishingSolver(object):
-
-    global EPS, TAU
 
     def __init__(self, parameters):
         self.parameters = parameters
@@ -21,7 +16,8 @@ class EstablishingSolver(object):
             data = pickle.load(file)
         return data
 
-    def get_system_values(self, values: list[float]) -> list[float]:
+    @staticmethod
+    def get_system_values(values: list[float]) -> list[float]:
         f = np.zeros(5)
         f[0] = values[0] + values[2] * np.cos(3*np.pi/2 - values[3]) - values[5]
         f[1] = values[1] + values[2] * np.cos(3*np.pi/2 + values[4]) - values[7]
@@ -36,11 +32,11 @@ class EstablishingSolver(object):
 
         key = 0
         epoch = 0
-        while key == 0 or np.linalg.norm(abs(X[0]-X[1]), ord=2) > EPS:
+        while key == 0 or np.linalg.norm(abs(X[0]-X[1]), ord=2) > back.EPS:
             X[0] = X[1].copy()
             system_vals = self.get_system_values(values)
             for i in range(5):
-                X[1][i] = X[1][i] - system_vals[i] * TAU
+                X[1][i] = X[1][i] - system_vals[i] * back.TAU
                 values[i] = X[1][i]
             key = 1
             if epoch % 250 == 0:

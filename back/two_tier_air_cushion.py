@@ -107,7 +107,6 @@ class TwoTierSolver(object):
         ...
 
 
-solver = TwoTierSolver()
 vector = {
     "p": 2000,
 
@@ -165,4 +164,3 @@ vector = {
     "pt": 1,
     "pb": 1,
 }
-print(solver.findSolution(vector))
