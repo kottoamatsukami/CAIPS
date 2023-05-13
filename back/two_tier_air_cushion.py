@@ -1,104 +1,301 @@
 import numpy as np
-from matplotlib import pyplot as plt, patches as pth
+from numpy import sin, cos, pi
 from PIL import Image
-import back
-
+from matplotlib import pyplot as plt, patches as pth
 
 class TwoTierSolver(object):
-    def __init__(self, constants: dict) -> None:
+
+    def __init__(self, constants: list) -> None:
         self.constants = constants
 
-    def F(self, x: dict, norm=1, return_f=False) -> np.array:
-        f = np.zeros(43)
+    def F(self, vector, constants):
+        x1, x2, x3, x4, x5 = vector[0:5]
+        y1, y2, y3, y4, y5 = vector[5:10]
+        r1, r2, r3, r4, r5 = vector[10:15]
+        phi1, phi2, phi3, phi4, phi5 = vector[15:20]
+        alpha1, alpha2, alpha3, alpha4, alpha5 = vector[20:25]
+        p, Ax, Ay, Bx, By = constants[0:5]
+        rt, rb, pt, pb = constants[9:13]
+        phi1_nd, phi2_nd, phi3_nd, phiSum = constants[13:17]
 
-        # --------------------------------------
-        # Peplin:
-        f[0] = x["r1"]*x["phi1"] - self.constants["rt"]*self.constants["phiNd1"]
-        f[1] = x["r2"]*x["phi2"] - self.constants["rt"]*self.constants["phiNd2"]
-        f[2] = x["r3"]*x["phi3"] - self.constants["rt"]*self.constants["phiNd3"]
-        f[3] = x["r4"]*x["phi4"] + x["r5"]*x["phi5"] - self.constants["rb"]*(x["phiNd4"] + x["phiNd5"])
+        f = np.zeros(25)
+        f[0] = r1 * phi1 - rt * phi1_nd
+        f[1] = r2 * phi2 - rt * phi2_nd
+        f[2] = r3 * phi3 - rt * phi3_nd
+        f[3] = r4 * phi4 + r5 * phi5 - rb * phiSum
 
-        f[4] = x["r1"]*np.cos(x["alpha1"]) + x["x1"] - self.constants["Ax"]
-        f[5] = x["r1"]*np.sin(x["alpha1"]) + x["y1"] - self.constants["Ay"]
+        f[4] = r1 * cos(alpha1) + x1 - Ax
+        f[5] = r1 * sin(alpha1) + y1 - Ay
 
-        f[6] = x["r2"]*np.cos(x["phi2"] + x["alpha2"]) + x["x2"] - self.constants["Bx"]
-        f[7] = x["r2"]*np.sin(x["phi2"] + x["alpha2"]) + x["y2"] - self.constants["By"]
+        f[6] = r2 * cos(phi2 + alpha2) + x2 - Bx
+        f[7] = r2 * sin(phi2 + alpha2) + y2 - By
 
-        f[8] = x["r3"]*np.cos(x["alpha3"] + x["phi3"]) + x["x3"] - x["r2"]*np.cos(x["alpha2"]) - x["x2"]
-        f[9] = x["r3"]*np.sin(x["alpha3"] + x["phi3"]) + x["y3"] - x["r2"]*np.sin(x["alpha2"]) - x["y2"]
-        f[10] = x["r3"]*np.cos(x["alpha3"] + x["phi3"]) + x["x3"] - x["r5"]*np.cos(self.constants["alpha5"] + x["phi5"]) - x["x5"]
-        f[11] = x["r3"]*np.sin(x["alpha3"] + x["phi3"]) + x["y3"] - x["r5"]*np.sin(self.constants["alpha5"] + x["phi5"]) - x["y5"]
+        f[8] = r3 * cos(alpha3 + phi3) + x3 - r2 * cos(alpha2) - x2
+        f[9] = r3 * sin(alpha3 + phi3) + y3 - r2 * sin(alpha2) - y2
+        f[10] = r3 * cos(alpha3 + phi3) + x3 - r5 * cos(alpha5 + phi5) - x5
+        f[11] = r3 * sin(alpha3 + phi3) + y3 - r5 * sin(alpha5 + phi5) - y5
 
-        f[12] = x["r1"]*np.cos(x["alpha1"] + x["phi1"]) + x["x1"] - x["r3"]*np.cos(x["alpha3"]) - x["x3"]
-        f[13] = x["r1"]*np.sin(x["alpha1"] + x["phi1"]) + x["y1"] - x["r3"]*np.sin(x["alpha3"]) - x["y3"]
-        f[14] = x["r1"]*np.cos(x["alpha1"] + x["phi1"]) + x["x1"] - x["r4"]*np.cos(x["alpha4"]) - x["x4"]
-        f[15] = x["r1"]*np.sin(x["alpha1"] + x["phi1"]) + x["y1"] - x["r4"]*np.sin(x["alpha4"]) - x["y4"]
+        f[12] = r1 * cos(alpha1 + phi1) + x1 - r3 * cos(alpha3) - x3
+        f[13] = r1 * sin(alpha1 + phi1) + y1 - r3 * sin(alpha3) - y3
+        f[14] = r1 * cos(alpha1 + phi1) + x1 - r4 * cos(alpha4) - x4
+        f[15] = r1 * sin(alpha1 + phi1) + y1 - r4 * sin(alpha4) - y4
 
-        f[16] = x["x4"] - x["x5"]
-        f[17] = -x["r4"] + x["y5"] + x["r5"] - x["y5"]
+        f[16] = x4 - x5
+        f[17] = -r4 + y4 + r5 - y5
 
-        f[18] = x["pt"]*x["r1"]*np.sin(x["alpha1"] + x["phi1"]) - (x["pt"] - x["pb"])*x["r3"]*np.sin(x["alpha3"]) - x["pb"]*x["r4"]*np.sin(x["alpha4"])
-        f[19] = -x["pt"]*x["r1"]*np.cos(x["alpha1"] + x["phi1"]) + (x["pt"] - x["pb"])*x["r3"]*np.cos(x["alpha3"]) + x["pb"]*x["r4"]*np.cos(x["alpha4"])
-        f[20] = -(x["pt"] - self.constants["p"])*x["r2"]*np.sin(x["alpha2"]) + (x["pt"] - x["pb"])*x["r3"]*np.sin(x["alpha3"] + x["phi3"]) + (x["pt"] - self.constants["p"])*x["r5"]*np.sin(self.constants["alpha5"] + x["phi5"])
-        f[21] = (x["pt"] - self.constants["p"])*x["r2"]*np.cos(x["alpha2"]) - (x["pt"] - x["pb"])*x["r3"]*np.cos(x["alpha3"] + x["phi3"]) - (x["pt"] - self.constants["p"])*x["r5"]*np.cos(self.constants["alpha5"] + x["phi5"])
+        f[18] = pt * r1 * sin(alpha1 + phi1) - (pt - pb) * r3 * sin(alpha3) - pb * r4 * sin(alpha4)
+        f[19] = -pt * r1 * cos(alpha1 + phi1) + (pt - pb) * r3 * cos(alpha3) + pb * r4 * cos(alpha4)
 
-        f[22] = x["pb"]*x["r4"] - (x["pb"] - self.constants["p"])*x["r5"]
-        f[23] = x["alpha4"] - 3*np.pi/2 + x["phi4"]
-        f[24] = self.constants["alpha5"] - 3*np.pi/2
-        # --------------------------------------
+        f[20] = -(pt - p) * r2 * sin(alpha2) + (pt - pb) * r3 * sin(alpha3 + phi3) + (pb - p) * r5 * sin(alpha5 + phi5)
+        f[21] = (pt - p) * r2 * cos(alpha2) - (pt - pb) * r3 * cos(phi3 + alpha3) - (pb - p) * r5 * cos(alpha5 + phi5)
 
-        # f[0] = 5.001905970 - x["phiNd4"] - x["phiNd5"]
-        # f[1] = 3*np.pi/2 - x["phi4"] - x["alpha4"]
-        # f[2] = x["r1"] * x["phi1"] - self.constants["rt"] * self.constants["phiNd1"]
-        # f[3] = x["r2"] * x["phi2"] - self.constants["rt"] * self.constants["phiNd2"]
-        # f[4] = x["r3"] * x["phi3"] - self.constants["rt"] * self.constants["phiNd3"]
-        # f[5] = x["r4"] * x["phi4"] + x["r5"] * x["phi5"] - self.constants["rb"]*(x["phiNd4"] + x["phiNd5"])
-        # f[6] = x["r1"] * np.cos(x["alpha1"]) + x["x1"] - self.constants["Ax"]
-        # f[7] = x["r1"] * np.sin(x["alpha1"]) + x["y1"] - self.constants["Ay"]
-        # f[8] = x["r2"] * np.cos(x["phi2"] + x["alpha2"]) + x["x2"] - self.constants["Bx"]
-        # f[9] = x["r2"] * np.sin(x["phi2"] + x["alpha2"]) + x["y2"] - self.constants["By"]
-        # f[10] = x["r3"] * np.cos(x["alpha3"] + x["phi3"]) + x["x3"] - x["r2"]*np.cos(x["alpha2"]) - x["x2"]
-        # f[11] = x["r3"] * np.sin(x["alpha3"] + x["phi3"]) + x["y3"] - x["r2"]*np.sin(x["alpha2"]) - x["y2"]
-        # f[12] = x["r3"] * np.cos(x["alpha3"] + x["phi3"]) + x["x3"] - x["r5"]*np.cos(self.constants["alpha5"] + x["phi5"]) - x["x5"]
-        # f[13] = x["r3"] * np.sin(x["alpha3"] + x["phi3"]) + x["y3"] - x["r5"]*np.sin(self.constants["alpha5"] + x["phi5"]) - x["y5"]
-        # f[14] = x["r1"] * np.cos(x["alpha1"] + x["phi1"]) + x["x1"] - x["r3"]*np.cos(x["alpha3"]) - x["x3"]
-        # f[15] = x["r1"] * np.sin(x["alpha1"] + x["phi1"]) + x["y1"] - x["r3"]*np.sin(x["alpha3"]) - x["y3"]
-        # f[16] = x["r1"] * np.cos(x["alpha1"] + x["phi1"]) + x["x1"] - x["r4"]*np.cos(x["alpha4"]) - x["x4"]
-        # f[17] = x["r1"] * np.sin(x["alpha1"] + x["phi1"]) + x["y1"] - x["r4"]*np.sin(x["alpha4"]) - x["y4"]
-        # f[18] = x["x4"] - x["x5"]
-        # f[19] = x["y4"] - x["r4"] - x["y5"] + x["r5"]
-        # f[20] = x["pt"]*x["r1"]*np.sin(x["alpha1"] + x["phi1"]) - (x["pt"] - x["pb"])*x["r3"]*np.sin(x["alpha3"]) - x["pb"]*x["r4"]*np.sin(x["alpha4"])
-        # f[21] = x["pt"]*x["r1"]*np.cos(x["alpha1"] + x["phi1"]) - (x["pt"] - x["pb"])*x["r3"]*np.cos(x["alpha3"]) - x["pb"]*x["r4"]*np.cos(x["alpha4"])
-        # f[22] = (x["pt"] - self.constants["p"])*x["r2"]*np.sin(x["alpha2"]) - (x["pt"] - x["pb"])*x["r3"]*np.sin(x["alpha3"] + x["phi3"]) - (x["pb"] - self.constants["p"])*x["r5"]*np.sin(self.constants["alpha5"] + x["phi5"])
-        # f[23] = (x["pt"] - self.constants["p"])*x["r2"]*np.cos(x["alpha2"]) - (x["pt"] - x["pb"])*x["r3"]*np.cos(x["alpha3"] + x["phi3"]) - (x["pb"] - self.constants["p"])*x["r5"]*np.cos(self.constants["alpha5"] + x["phi5"])
-        # f[24] = x["pb"]*x["r4"] - (x["pb"] - self.constants["p"])*x["r5"]
+        f[22] = pb * r4 - (pb - p) * r5
+        f[23] = alpha4 - 3 * pi / 2 + phi4
+        f[24] = alpha5 - 3 * pi / 2
 
-        for i in range(len(f)):
-            f[i] = f[i] * f[i]
+        return f
 
-        if return_f:
-            return np.linalg.norm(f, norm), f
-        return np.linalg.norm(f, norm)
+    def calc_gradient(self, vector, constants):
+        x1, x2, x3, x4, x5 = vector[0:5]
+        y1, y2, y3, y4, y5 = vector[5:10]
+        r1, r2, r3, r4, r5 = vector[10:15]
+        phi1, phi2, phi3, phi4, phi5 = vector[15:20]
+        alpha1, alpha2, alpha3, alpha4, alpha5 = vector[20:25]
+        p, Ax, Ay, Bx, By = constants[0:5]
+        rt, rb, pt, pb = constants[9:13]
+        phi1_nd, phi2_nd, phi3_nd, phiSum = constants[13:17]
 
-    def findSolution(self, vector, norm=2):
-        for i in range(1, 5000):
-            gradient = {parameter: 0 for parameter in vector}
-            for parameter in vector:
-                epsvector = vector.copy()
-                epsvector[parameter] += back.EPS
-                gradient[parameter] = (self.F(epsvector, norm) - self.F(vector, norm))/back.EPS
+        gradient = np.zeros(25)
 
-            for parameter in vector:
-                vector[parameter] = vector[parameter] - back.OMI * gradient[parameter]
+        # x1
+        gradient[0] = 2 * (r1 * cos(alpha1) + x1 - Ax) \
+                      + 2 * (r1 * cos(alpha1 + phi1) + x1 - r3 * cos(alpha3) - x3) \
+                      + 2 * (r1 * cos(alpha1 + phi1) + x1 - r4 * cos(alpha4) - x4)
+        # x2
+        gradient[1] = 2 * (r2 * cos(phi2 + alpha2) + x2 - Bx) \
+                      + 2 * (r3 * cos(alpha3 + phi3) + x3 - r2 * cos(alpha2) - x2) * (-1)
 
-            print(self.F(vector, norm))
+        # x3
+        gradient[2] = 2 * (r3 * cos(alpha3 + phi3) + x3 - r2 * cos(alpha2) - x2) \
+                      + 2 * (r3 * cos(alpha3 + phi3) + x3 - r5 * cos(alpha5 + phi5) - x5) \
+                      + 2 * (r1 * cos(alpha1 + phi1) + x1 - r3 * cos(alpha3) - x3) * (-1)
+        # x4
+        gradient[3] = 2 * ( (x4 - x5)
+                            - 2 * (r1 * cos(alpha1 + phi1) + x1 - r4 * cos(alpha4) - x4)
+                            - 2 * (r3 * cos(alpha3 + phi3) + x3 - r5 * cos(alpha5 + phi5) - x5) )
+
+        # x5
+        gradient[4] = 0
+
+        # --------------------------< Y >--------------------------------
+        # y1
+        gradient[5] = 2 * (r1 * sin(alpha1) + y1 - Ay) \
+                      + 2 * (r1 * sin(alpha1 + phi1) + y1 - r3 * sin(alpha3) - y3) \
+                      + 2 * (r1 * sin(alpha1 + phi1) + y1 - r4 * sin(alpha4) - y4)
+        # y2
+        gradient[6] = 2 * (r2 * sin(phi2 + alpha2) + y2 - By) \
+                      + 2 * (r3 * sin(alpha3 + phi3) + y3 - r2 * sin(alpha2) - y2) * (-1)
+
+        # y3
+        gradient[7] = 2 * (r3 * sin(alpha3 + phi3) + y3 - r2 * sin(alpha2) - y2) \
+                      + 2 * (r3 * sin(alpha3 + phi3) + y3 - r5 * sin(alpha5 + phi5) - y5) \
+                      + 2 * (r1 * sin(alpha1 + phi1) + y1 - r3 * sin(alpha3) - y3) * (-1)
+
+        # y4
+        gradient[8] = 2 * ( (-r4 + y4 + r5 - y5)
+                            - (r1 * sin(alpha1 + phi1) + y1 - r4 * sin(alpha4) - y4)
+                            - (r3 * sin(alpha3 + phi3) + y3 - r5 * sin(alpha5 + phi5) - y5) )
+
+        # y5
+        gradient[9] = 0
+
+        # --------------------------< R >--------------------------------
+        # r1
+        gradient[10] = 2 * (r1 * phi1 - rt * phi1_nd) * phi1 \
+                      + 2 * (r1 * cos(alpha1) + x1 - Ax) * cos(alpha1) \
+                      + 2 * (r1 * sin(alpha1) + y1 - Ay) * sin(alpha1) \
+                      + 2 * (r1 * cos(alpha1 + phi1) + x1 - r3 * cos(alpha3) - x3) * cos(alpha1 + phi1) \
+                      + 2 * (r1 * sin(alpha1 + phi1) + y1 - r3 * sin(alpha3) - y3) * sin(alpha1 + phi1) \
+                      + 2 * (r1 * cos(alpha1 + phi1) + x1 - r4 * cos(alpha4) - x4) * cos(alpha1 + phi1) \
+                      + 2 * (r1 * sin(alpha1 + phi1) + y1 - r4 * sin(alpha4) - y4) * sin(alpha1 + phi1) \
+                      + 2 * (pt * r1 * sin(alpha1 + phi1) - (pt - pb) * r3 * sin(alpha3) - pb * r4 * sin(
+                        alpha4)) * pt * sin(alpha1 + phi1) \
+                      + 2 * (-pt * r1 * cos(alpha1 + phi1) + (pt - pb) * r3 * cos(alpha3) + pb * r4 * cos(alpha4)) * (
+                        -pt) * cos(alpha1 + phi1)
+
+        # r2
+        gradient[11] = 2 * (r2 * phi2 - rt * phi2_nd) * phi2 \
+                      + 2 * (r2 * cos(phi2 + alpha2) + x2 - Bx) * cos(phi2 + alpha2) \
+                      + 2 * (r2 * sin(phi2 + alpha2) + y2 - By) * sin(phi2 + alpha2) \
+                      + 2 * (r3 * cos(alpha3 + phi3) + x3 - r2 * cos(alpha2) - x2) * (-cos(alpha2)) \
+                      + 2 * (r3 * sin(alpha3 + phi3) + y3 - r2 * sin(alpha2) - y2) * (-sin(alpha2)) \
+                      + 2 * (-(pt - p) * r2 * sin(alpha2) + (pt - pb) * r3 * sin(alpha3 + phi3) + (pb - p) * r5 * sin(
+                        alpha5 + phi5)) * (-sin(alpha2) * (pt - p)) \
+                      + 2 * ((pt - p) * r2 * cos(alpha2) - (pt - pb) * r3 * cos(phi3 + alpha3) - (pb - p) * r5 * cos(
+                        alpha5 + phi5)) * cos(alpha2) * (pt - p)
+
+        # r3
+        gradient[12] = 2 * (r3 * phi3 - rt * phi3_nd) * phi3 \
+                       + 2 * (r3 * cos(alpha3 + phi3) + x3 - r2 * cos(alpha2) - x2) * cos(alpha3 + phi3) \
+                       + 2 * (r3 * sin(alpha3 + phi3) + y3 - r2 * sin(alpha2) - y2) * sin(alpha3 + phi3) \
+                       + 2 * (r3 * cos(alpha3 + phi3) + x3 - r5 * cos(alpha5 + phi5) - x5) * cos(alpha3 + phi3) \
+                       + 2 * (r3 * sin(alpha3 + phi3) + y3 - r5 * sin(alpha5 + phi5) - y5) * sin(alpha3 + phi3) \
+                       + 2 * (r1 * cos(alpha1 + phi1) + x1 - r3 * cos(alpha3) - x3) * (-cos(alpha3)) \
+                       + 2 * (r1 * sin(alpha1 + phi1) + y1 - r3 * sin(alpha3) - y3) * sin(alpha3) \
+                       + 2 * (pt * r1 * sin(alpha1 + phi1) - (pt - pb) * r3 * sin(alpha3) - pb * r4 * sin(alpha4)) * (
+                        -sin(alpha3) * (pt - pb)) \
+                       + 2 * (-pt * r1 * cos(alpha1 + phi1) + (pt - pb) * r3 * cos(alpha3) + pb * r4 * cos(alpha4)) * (
+                         pt - pb) * cos(alpha3) \
+                       + 2 * (-(pt - p) * r2 * sin(alpha2) + (pt - pb) * r3 * sin(alpha3 + phi3) + (pb - p) * r5 * sin(
+                        alpha5 + phi5)) * (pt - pb) * sin(alpha3 + phi3) \
+                       + 2 * ((pt - p) * r2 * cos(alpha2) - (pt - pb) * r3 * cos(phi3 + alpha3) - (pb - p) * r5 * cos(
+                        alpha5 + phi5)) * (-cos(phi3 + alpha3) * (pt - pb))
+
+        # r4
+        gradient[13] = 2 * (r4 * phi4 + (pb * r4) / (pb - p) * phi5 - rb * phiSum) * (phi4 + pb / (pb - p) * phi5) \
+                        + 2 * (r3 * cos(alpha3 + phi3) + x3 - (pb * r4) / (pb - p) * cos(alpha5 + phi5) - x5) * (-pb / (pb - p) * cos(alpha5 + phi5)) \
+                       + 2 * (r3 * sin(alpha3 + phi3) + y3 - (pb * r4) / (pb - p) * sin(alpha5 + phi5) - (pb * r4) / (pb - p) + r4 - y4) * (-pb / (pb - p) * sin(alpha5 + phi5) - pb / (pb - p) + 1) \
+                       + 2 * (r1 * cos(alpha1 + phi1) + x1 - r4 * cos(alpha4) - x4) * (-cos(alpha4)) \
+                       + 2 * (r1 * sin(alpha1 + phi1) + y1 - r4 * sin(alpha4) - y4) * (-sin(alpha4)) \
+                       + 2 * (pt * r1 * sin(alpha1 + phi1) - (pt - pb) * r3 * sin(alpha3) - pb * r4 * sin(alpha4)) * (-sin(alpha4) * pb) \
+                       + 2 * (-pt * r1 * cos(alpha1 + phi1) + (pt - pb) * r3 * cos(alpha3) + pb * r4 * cos(alpha4)) * pb * cos(alpha4) \
+                       + 2 * (-(pt - p) * r2 * sin(alpha2) + (pt - pb) * r3 * sin(alpha3 + phi3) + pb * r4 * sin(alpha5 + phi5)) * pb * sin(alpha5 + phi5) \
+                       + 2 * ((pt - p) * r2 * cos(alpha2) - (pt - pb) * r3 * cos(phi3 + alpha3) - pb * r4 * cos(alpha5 + phi5)) * (-pb * cos(alpha5 + phi5))
+
+
+        # r5
+        gradient[14] = 0
+
+        # --------------------------< Phi >--------------------------------
+        # phi1
+        gradient[15] = 2 * (r1 * phi1 - rt * phi1_nd) * r1 \
+                       + 2 * (r1 * cos(alpha1 + phi1) + x1 - r3 * cos(alpha3) - x3) * (-r1 * sin(alpha1 + phi1)) \
+                       + 2 * (r1 * sin(alpha1 + phi1) + y1 - r3 * sin(alpha3) - y3) * (r1 * cos(alpha1 + phi1)) \
+                       + 2 * (r1 * cos(alpha1 + phi1) + x1 - r4 * cos(alpha4) - x4) * (-r1 * sin(alpha1 + phi1)) \
+                       + 2 * (r1 * sin(alpha1 + phi1) + y1 - r4 * sin(alpha4) - y4) * (r1 * cos(alpha1 + phi1)) \
+                       + 2 * (pt * r1 * sin(alpha1 + phi1) - (pt - pb) * r3 * sin(alpha3) - pb * r4 * sin(alpha4)) * (
+                        pt * r1 * cos(alpha1 + phi1)) \
+                       + 2 * (-pt * r1 * cos(alpha1 + phi1) + (pt - pb) * r3 * cos(alpha3) + pb * r4 * cos(alpha4)) * (
+                        pt * r1 * sin(alpha1 + phi1))
+
+        # phi2
+        gradient[16] = 2 * (r2 * phi2 - rt * phi2_nd) * r2 \
+                       + 2 * (r2 * cos(phi2 + alpha2) + x2 - Bx) * (-sin(phi2 + alpha2) * r2) \
+                       + 2 * (r2 * sin(phi2 + alpha2) + y2 - By) * (cos(phi2 + alpha2) * r2)
+
+        # phi3
+        gradient[17] = 2 * (r3 * phi3 - rt * phi3_nd) * r3 \
+                       + 2 * (r3 * cos(alpha3 + phi3) + x3 - r2 * cos(alpha2) - x2) * (-sin(alpha3 + phi3)) * r3 \
+                       + 2 * (r3 * sin(alpha3 + phi3) + y3 - r2 * sin(alpha2) - y2) * (cos(alpha3 + phi3) * r3) \
+                       + 2 * (r3 * cos(alpha3 + phi3) + x3 - r5 * cos(alpha5 + phi5) - x5) * (-sin(alpha3 + phi3) * r3) \
+                       + 2 * (r3 * sin(alpha3 + phi3) + y3 - r5 * sin(alpha5 + phi5) - y5) * (cos(alpha3 + phi3) * r3) \
+                       + 2 * (-(pt - p) * r2 * sin(alpha2) + (pt - pb) * r3 * sin(alpha3 + phi3) + (pb - p) * r5 * sin(
+                        alpha5 + phi5)) * cos(alpha3 + phi3) * r3 * (pt - pb) \
+                       + 2 * ((pt - p) * r2 * cos(alpha2) - (pt - pb) * r3 * cos(phi3 + alpha3) - (pb - p) * r5 * cos(
+                        alpha5 + phi5)) * sin(phi3 + alpha3) * r3 * (pt - pb)
+
+        # phi4
+        gradient[18] = 2 * (alpha4 - 3 * pi / 2 + phi4) \
+                       + 2 * (r4 * phi4 + r5 * phi5 - rb * phiSum) * r4 \
+                       + 2 * (r1 * cos(alpha1 + phi1) + x1 - r4 * cos(3 * pi / 2 - phi4) - x4) * (-r4 * sin(3 * pi / 2 - phi4)) \
+                       + 2 * (r1 * sin(alpha1 + phi1) + y1 - r4 * sin(3 * pi / 2 - phi4) - y4) * r4 * cos(3 * pi / 2 - phi4) \
+                       + 2 * (pt * r1 * sin(alpha1 + phi1) - (pt - pb) * r3 * sin(alpha3) - pb * r4 * sin(3 * pi / 2 - phi4)) * pb * r4 * cos(3 * pi / 2 - phi4) \
+                       + 2 * (-pt * r1 * cos(alpha1 + phi1) + (pt - pb) * r3 * cos(alpha3) + pb * r4 * cos(3 * pi / 2 - phi4)) * pb * r4 * sin(3 * pi / 2 - phi4)
+
+        # phi5
+        gradient[19] = 2 * (r4 * phi4 + r5 * phi5 - rb * phiSum) * r5 \
+                       + 2 * (r3 * cos(alpha3 + phi3) + x3 - r5 * cos(alpha5 + phi5) - x5) * sin(alpha5 + phi5) * r5 \
+                       + 2 * (r3 * sin(alpha3 + phi3) + y3 - r5 * sin(alpha5 + phi5) - y5) * (-cos(alpha5 + phi5)) * r5 \
+                       + 2 * (-(pt - p) * r2 * sin(alpha2) + (pt - pb) * r3 * sin(alpha3 + phi3) + (pb - p) * r5 * sin(
+                        alpha5 + phi5)) * cos(alpha5 + phi5) * (pb - p) * r5 \
+                       + 2 * ((pt - p) * r2 * cos(alpha2) - (pt - pb) * r3 * cos(phi3 + alpha3) - (pb - p) * r5 * cos(
+                        alpha5 + phi5)) * sin(alpha5 + phi5) * (pb - p) * r5
+
+        # --------------------------< Alpha >--------------------------------
+        # alpha1
+        gradient[20] = 2 * (r1 * cos(alpha1) + x1 - Ax) * (-sin(alpha1)) * r1 \
+                       + 2 * (r1 * sin(alpha1) + y1 - Ay) * cos(alpha1) * r1 \
+                       + 2 * (r1 * cos(alpha1 + phi1) + x1 - r3 * cos(alpha3) - x3) * (-sin(alpha1 + phi1)) * r1 \
+                       + 2 * (r1 * sin(alpha1 + phi1) + y1 - r3 * sin(alpha3) - y3) * cos(alpha1 + phi1) * r1 \
+                       + 2 * (r1 * cos(alpha1 + phi1) + x1 - r4 * cos(alpha4) - x4) * (-sin(alpha1 + phi1) * r1) \
+                       + 2 * (r1 * sin(alpha1 + phi1) + y1 - r4 * sin(alpha4) - y4) * cos(alpha1 + phi1) * r1 \
+                       + 2 * (pt * r1 * sin(alpha1 + phi1) - (pt - pb) * r3 * sin(alpha3) - pb * r4 * sin(
+                        alpha4)) * cos(alpha1 + phi1) * pt * r1 \
+                       + 2 * (-pt * r1 * cos(alpha1 + phi1) + (pt - pb) * r3 * cos(alpha3) + pb * r4 * cos(
+                        alpha4)) * sin(alpha1 + phi1) * pt * r1
+
+        # alpha2
+        gradient[21] = 2 * (r2 * cos(phi2 + alpha2) + x2 - Bx) * sin(phi2 + alpha2) * r2 * (-1) \
+                       + 2 * (r2 * sin(phi2 + alpha2) + y2 - By) * (-cos(phi2 + alpha2)) * r2 * (-1) \
+                       + 2 * (r3 * cos(alpha3 + phi3) + x3 - r2 * cos(alpha2) - x2) * sin(alpha2) * r2 \
+                       + 2 * (r3 * sin(alpha3 + phi3) + y3 - r2 * sin(alpha2) - y2) * (-cos(alpha2)) * r2 \
+                       + 2 * (-(pt - p) * r2 * sin(alpha2) + (pt - pb) * r3 * sin(alpha3 + phi3) + (pb - p) * r5 * sin(
+                        alpha5 + phi5)) * (-cos(alpha2)) * r2 * (pt - p) \
+                       + 2 * ((pt - p) * r2 * cos(alpha2) - (pt - pb) * r3 * cos(phi3 + alpha3) - (pb - p) * r5 * cos(
+                        alpha5 + phi5)) * (-sin(alpha2)) * r2 * (pt - p)
+
+        # alpha3
+        gradient[22] = 2 * (r3 * cos(alpha3 + phi3) + x3 - r2 * cos(alpha2) - x2) * (-sin(alpha3 + phi3)) * r3 \
+                       + 2 * (r3 * sin(alpha3 + phi3) + y3 - r2 * sin(alpha2) - y2) * cos(alpha3 + phi3) * r3 \
+                       + 2 * (r3 * cos(alpha3 + phi3) + x3 - r5 * cos(alpha5 + phi5) - x5) * (-sin(alpha3 + phi3)) * r3 \
+                       + 2 * (r3 * sin(alpha3 + phi3) + y3 - r5 * sin(alpha5 + phi5) - y5) * cos(alpha3 + phi3) * r3 \
+                       + 2 * (r1 * cos(alpha1 + phi1) + x1 - r3 * cos(alpha3) - x3) * sin(alpha3) * r3 \
+                       + 2 * (r1 * sin(alpha1 + phi1) + y1 - r3 * sin(alpha3) - y3) * (-cos(alpha3)) * r3 \
+                       + 2 * (pt * r1 * sin(alpha1 + phi1) - (pt - pb) * r3 * sin(alpha3) - pb * r4 * sin(alpha4)) * (
+                        -cos(alpha3)) * (pt - pb) * r3 \
+                       + 2 * (-pt * r1 * cos(alpha1 + phi1) + (pt - pb) * r3 * cos(alpha3) + pb * r4 * cos(alpha4)) * (
+                        -sin(alpha3)) * (pt - pb) * r3 \
+                       + 2 * (-(pt - p) * r2 * sin(alpha2) + (pt - pb) * r3 * sin(alpha3 + phi3) + (pb - p) * r5 * sin(
+                        alpha5 + phi5)) * cos(alpha3 + phi3) * r3 * (pt - pb) \
+                       + 2 * ((pt - p) * r2 * cos(alpha2) - (pt - pb) * r3 * cos(phi3 + alpha3) - (pb - p) * r5 * cos(
+                        alpha5 + phi5)) * sin(phi3 + alpha3) * r3 * (pt - pb)
+
+        # alpha4
+        gradient[23] = 0
+
+        # alpha5
+        gradient[24] = 0
+
+        return gradient
+
+    def gradient_descent(self, vector, constants, learn_rate=0.0005, tolerance=1e-3):
+        while True:
+            gradient = self.calc_gradient(vector, constants)
+
+            x4 = vector[3]
+            y4 = vector[8]
+            r4 = vector[13]
+            p, pb = constants[0], constants[12]
+            phi4 = vector[18]
+
+            vector[23] = 3*pi/2 - phi4 # alpha4
+            vector[24] = 3*pi/2 # alpha5
+            vector[14] = (pb*r4) / (pb - p) # r5
+            r5 = vector[14]
+            vector[9] = r5 - r4 + y4 # y5
+            vector[4] = x4 # x5
+
+            for i in range(len(vector)):
+                vector[i] -= learn_rate*gradient[i]
+
+            if np.linalg.norm(self.F(vector, constants), 2) < tolerance:
+                break
+
+            # print("Error =", np.linalg.norm(self.F(vector, constants), 2))
+
         return vector
 
+    def makePlot(self, vector, constants):
 
-    def makeAnimation(self, vector):
-        ...
+        x1, x2, x3, x4, x5 = vector[0:5]
+        y1, y2, y3, y4, y5 = vector[5:10]
+        r1, r2, r3, r4, r5 = vector[10:15]
+        phi1, phi2, phi3, phi4, phi5 = vector[15:20]
+        alpha1, alpha2, alpha3, alpha4, alpha5 = vector[20:25]
+        p, Ax, Ay, Bx, By = constants[0:5]
+        rt, rb, pt, pb = constants[9:13]
+        phi1_nd, phi2_nd, phi3_nd, phiSum = constants[13:17]
 
-    def makePlot(self, vector, rotate=False):
         # init PLT
         fig, axs = plt.subplots(figsize=(5, 5))
         axs.grid(linestyle='--')
@@ -106,127 +303,123 @@ class TwoTierSolver(object):
 
         # Line AB
         axs.plot(
-            (constants["Ax"], constants["Bx"]),
-            (constants["Ay"], constants["By"]),
+            (Ax, Bx),
+            (Ay, By),
             color="black"
         )
 
         arcad = pth.Arc(
-            xy=(vector["x1"], vector["y1"]),
-            width=vector["r1"] * 2,
-            height=vector["r1"] * 2,
-            angle=(180 - vector["alpha1"]) * 180 / np.pi,
-            theta1=(180 - vector["alpha1"]) * 180 / np.pi,
-            theta2=(vector["phi1"] - (180 - vector["alpha1"])) * 180 / np.pi,
+            xy=(x1, y1),
+            width=r1*2,
+            height=r1*2,
+            angle=0,
+            theta1=np.rad2deg(alpha1),
+            theta2=np.rad2deg(alpha1) + np.rad2deg(phi1),
 
         )
         axs.add_patch(arcad)
         arccb = pth.Arc(
-            xy=(vector["x2"], vector["y2"]),
-            width=vector["r2"] * 2,
-            height=vector["r2"] * 2,
-            angle=(180 - vector["alpha2"]) * 180 / np.pi,
-            theta1=(180 - vector["alpha2"]) * 180 / np.pi,
-            theta2=(vector["phi2"] - (180 - vector["alpha2"])) * 180 / np.pi,
+            xy=(x2, y2),
+            width=r2 * 2,
+            height=r2 * 2,
+            angle=0,
+            theta1=np.rad2deg(alpha2),
+            theta2=np.rad2deg(alpha2) + np.rad2deg(phi2),
 
         )
         axs.add_patch(arccb)
         arcdc = pth.Arc(
-            xy=(vector["x3"], vector["y3"]),
-            width=vector["r3"] * 2,
-            height=vector["r3"] * 2,
-            angle=(180 - vector["alpha3"]) * 180 / np.pi,
-            theta1=(180 - vector["alpha3"]) * 180 / np.pi,
-            theta2=(vector["phi3"] - (180 - vector["alpha3"])) * 180 / np.pi,
+            xy=(x3, y3),
+            width=r3 * 2,
+            height=r3 * 2,
+            angle=0,
+            theta1=np.rad2deg(alpha3),
+            theta2=np.rad2deg(alpha3) + np.rad2deg(phi3),
 
         )
         axs.add_patch(arcdc)
         arcde = pth.Arc(
-            xy=(vector["x4"], vector["y4"]),
-            width=vector["r4"] * 2,
-            height=vector["r4"] * 2,
-            angle=(-45 - vector["alpha4"]) * 180 / np.pi,
-            theta1=(180 - vector["alpha4"]) * 180 / np.pi,
-            theta2=(vector["phi4"] - (180 - vector["alpha4"])) * 180 / np.pi,
+            xy=(x4, y4),
+            width=r4 * 2,
+            height=r4 * 2,
+            angle=0,
+            theta1=np.rad2deg(alpha4),
+            theta2=np.rad2deg(alpha4) + np.rad2deg(phi4),
 
         )
         axs.add_patch(arcde)
         arcec = pth.Arc(
-            xy=(vector["x5"], vector["y5"]),
-            width=vector["r5"] * 2,
-            height=vector["r5"] * 2,
-            angle=(-45 - constants["alpha5"]) * 180 / np.pi,
-            theta1=(180 - constants["alpha5"]) * 180 / np.pi,
-            theta2=(vector["phi5"] - (180 - constants["alpha5"])) * 180 / np.pi,
+            xy=(x5, y5),
+            width=r5 * 2,
+            height=r5 * 2,
+            angle=0,
+            theta1=np.rad2deg(alpha5),
+            theta2=np.rad2deg(alpha5) + np.rad2deg(phi5),
 
         )
         axs.add_patch(arcec)
 
-        plt.show()
+
+        # plt.show()
 
         # Convert to GIF format
         fig.savefig("saved_parameters/temp.png")
         im = Image.open("saved_parameters/temp.png")
-        if rotate:
-            im = im.rotate(180)
         im.save("saved_parameters/temp.gif")
 
 
-    def calculate_overpressure(self, n):
-        ...
 
 
-constants = {
-    "p": 2000,
-    "Ax": 0,
-    "Ay": 1.9,
-    "Bx": 0.6,
-    "By": 1.3,
-    "xTop": 0,
-    "yTop": 1.3,
-    "xBot": 0,
-    "yBot": 0.44,
-    "rt": 0.6,
-    "rb": 0.38,
-    "pt0": 24000,
-    "pb0": 8000,
-    "phiNd1": 2.753364902,
-    "phiNd2": 1.182568575,
-    "phiNd3": 0.776455503,
-    "alpha5": 3*np.pi/2,
-}
-vector = {
-    "phiNd4": 0.5,
-    "phiNd5": 0.5,
-    "x1": constants["xTop"],
-    "x2": constants["xTop"],
-    "x3": constants["xTop"],
-    "x4": constants["xBot"],
-    "x5": constants["xBot"],
-    "y1": constants["yTop"],
-    "y2": constants["yTop"],
-    "y3": constants["yTop"],
-    "y4": constants["yBot"],
-    "y5": constants["yBot"],
-    "alpha1": 0.5,
-    "alpha2": 0.5,
-    "alpha3": 0.5,
-    "alpha4": 0.5,
-    "phi1": 0.5,
-    "phi2": 0.5,
-    "phi3": 0.5,
-    "phi4": 0.5,
-    "phi5": 0.5,
-    "r1": constants["rt"],
-    "r2": constants["rt"],
-    "r3": constants["rt"],
-    "r4": constants["rb"],
-    "r5": constants["rb"],
-    "pt": 1,
-    "pb": 1,
-}
-solver = TwoTierSolver(constants=constants)
-vector = solver.findSolution(vector=vector)
-print(solver.F(vector), vector)
 
-TwoTierSolver(constants=constants).makePlot(vector)
+constants = np.zeros(17)
+constants[0] = 2.0 # p
+constants[1] = 0.0 # Ax
+constants[2] = 1.9 # Ay
+constants[3] = 0.6 # Bx
+constants[4] = 1.3 # By
+constants[5] = 0.0 # xTop
+constants[6] = 1.3 # yTop
+constants[7] = 0.0 # xBot
+constants[8] = 0.44 # yBot
+constants[9] = 0.6 # rt
+constants[10] = 0.38 # rb
+constants[11] = 24.0 # pt
+constants[12] = 8.0 # pb
+constants[13] = 2.753364902 # phiNd1
+constants[14] = 1.182568575 # phiNd2
+constants[15] = 0.776455503 # phiNd3
+constants[16] = 5.001905970 # phiSum
+
+vector = np.zeros(25)
+vector[0] = 1.0 # x1
+vector[1] = 1.0 # x2
+vector[2] = 1.0 # x3
+vector[3] = 1.0 # x4
+vector[4] = 1.0 # x5
+vector[5] = 1.0 # y1
+vector[6] = 1.0 # y2
+vector[7] = 1.0 # y3
+vector[8] = 1.0 # y4
+vector[9] = 1.0 # y5
+vector[10] = 1.0 # r1
+vector[11] = 1.0 # r2
+vector[12] = 1.0 # r3
+vector[13] = 1.0 # r4
+vector[14] = 1.0 # r5
+vector[15] = 1.0 # phi1
+vector[16] = 1.0 # phi2
+vector[17] = 1.0 # phi3
+vector[18] = 1.0 # phi4
+vector[19] = 1.0 # phi5
+vector[20] = 1.0 # alpha1
+vector[21] = 1.0 # alpha2
+vector[22] = 1.0 # alpha3
+vector[23] = 1.0 # alpha4
+vector[24] = 1.0 # alpha5
+
+
+learn_rate = 0.0005
+tolerance = 1e-3
+
+vector = TwoTierSolver(constants).gradient_descent(vector=vector, constants=constants, learn_rate=learn_rate, tolerance=tolerance)
+TwoTierSolver(constants).makePlot(vector=vector, constants=constants)
