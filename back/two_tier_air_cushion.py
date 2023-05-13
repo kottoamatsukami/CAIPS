@@ -281,7 +281,7 @@ class TwoTierSolver(object):
             if np.linalg.norm(self.F(vector, constants), 2) < tolerance:
                 break
 
-            # print("Error =", np.linalg.norm(self.F(vector, constants), 2))
+            print("Error =", np.linalg.norm(self.F(vector, constants), 2))
 
         return vector
 
@@ -292,9 +292,7 @@ class TwoTierSolver(object):
         r1, r2, r3, r4, r5 = vector[10:15]
         phi1, phi2, phi3, phi4, phi5 = vector[15:20]
         alpha1, alpha2, alpha3, alpha4, alpha5 = vector[20:25]
-        p, Ax, Ay, Bx, By = constants[0:5]
-        rt, rb, pt, pb = constants[9:13]
-        phi1_nd, phi2_nd, phi3_nd, phiSum = constants[13:17]
+        Ax, Ay, Bx, By = constants[1:5]
 
         # init PLT
         fig, axs = plt.subplots(figsize=(5, 5))
