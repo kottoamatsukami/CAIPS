@@ -6,3 +6,6 @@ halo==0.0.31
 numpy==1.24.1
 plyer==2.1.0
 Pillow~=9.5.0
+celluloid~=0.2.0
+tqdm~=4.65.0
+numba~=0.56.4

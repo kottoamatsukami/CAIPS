@@ -1,16 +1,16 @@
-import os  # Working with the operating system
-import libs  # Working with STD files
-import plyer  # Working with file dialog
-import pickle  # Working with pickled files
-import math
+import os
+import libs
+from tkinter import Tk
+from tkinter.filedialog import askopenfilename, asksaveasfilename
+import pickle
 import time
 import numpy
-from matplotlib import pyplot as plt, patches as pth
-import dearpygui.dearpygui as dpg  # Working with GUI
-import front.gui_parameters as gp  # Working with GUI parameters
-from dearpygui_ext import logger  # Working with logger
-from back import establishing_solver  # Working with solver
-from PIL import Image
+import dearpygui.dearpygui as dpg
+import front.gui_parameters as gp
+from dearpygui_ext import logger
+from back import establishing_solver, tracking_dynamics, two_tier_air_cushion
+from PIL import Image, ImageSequence
+import numpy as np
 
 
 class GUI(object):
@@ -19,7 +19,6 @@ class GUI(object):
         self.logger = None
         self.settings = settings
         self.debug_mode = debug_mode
-
         self.current_mode = 1
         self.root = os.getcwd()
         self.parameters = libs.STD_PARAMETERS
@@ -77,6 +76,10 @@ class GUI(object):
                     dpg.add_menu_item(
                         label="Load Parameters",
                         callback=self.callback_load_parameters
+                    )
+                    dpg.add_menu_item(
+                        label="Open Last GIF",
+                        callback=self.callback_open_last_gif,
                     )
                     dpg.add_menu_item(
                         label="Credits",
@@ -173,10 +176,6 @@ class GUI(object):
                                       min_value=gp.slider_Pb0[0], max_value=gp.slider_Pb0[1],
                                       default_value=self.parameters["Pb0"],
                                       callback=self.universal_slider_callback)
-                dpg.add_slider_double(label="Pac", tag="slider_Pac",
-                                      min_value=gp.slider_Pac[0], max_value=gp.slider_Pac[1],
-                                      default_value=self.parameters["Pac"],
-                                      callback=self.universal_slider_callback)
                 dpg.add_slider_double(label="alpha5", tag="slider_alpha5",
                                       min_value=gp.slider_alpha5[0], max_value=gp.slider_alpha5[1],
                                       default_value=self.parameters["alpha5"],
@@ -185,6 +184,7 @@ class GUI(object):
                 dpg.add_tab_bar()
                 dpg.add_text("Set the exact values: <name> <value> <$>")
                 dpg.add_input_text(callback=self.callback_set_parameter)
+                self.callback_set_mode("mode 1")
 
             with dpg.window(
                     no_resize=True,
@@ -196,11 +196,14 @@ class GUI(object):
                     width=gp.cm_width,
                     height=gp.cm_height,
                     tag="Canvas_window",
+                    pos=(
+                        0,
+                        dpg.get_viewport_height() // 2 - gp.cm_height // 2,
+                    )
             ):
                 dpg.add_text(default_value="Canvas")
                 self.init_canvas()
                 dpg.add_image("current image")
-
 
         dpg.setup_dearpygui()
 
@@ -287,6 +290,18 @@ class GUI(object):
     # ------------------
     # Menu Bar Callbacks
     # ------------------
+
+    def slider_intersection(self, req: list):
+        for slider_type in self.parameters.keys():
+            if slider_type in req:
+                dpg.show_item(
+                    item=f"slider_{slider_type}"
+                )
+            else:
+                dpg.hide_item(
+                    item=f"slider_{slider_type}"
+                )
+
     def callback_set_mode(self, sender):
         # Remove old using
         old = "mode " + str(self.current_mode)
@@ -304,6 +319,15 @@ class GUI(object):
                 item=sender,
             ).replace(gp.current_mode_arrow, "").strip() + " " + gp.current_mode_arrow
         )
+        if self.current_mode == 1 or self.current_mode == 2:
+            self.slider_intersection(
+                req=["Ax", "Ay", "Bx", "By"]
+            )
+        else:
+            self.slider_intersection(
+                req=["Ax", "Ay", "Bx", "By", "Xtop", "Ytop", "Xbot", "Ybot", "Rt", "Rb"]
+            )
+
         # Logging
         self.log_message(
             msg=f"Change script mode from <{old}> to <{sender}>",
@@ -311,27 +335,24 @@ class GUI(object):
         )
 
     def callback_save_parameters(self):
-        path = plyer.filechooser.save_file(
-            path=os.getcwd(),
-            title="Save parameter file",
-            filters=["*.caips"]
+        Tk().withdraw()
+        path = asksaveasfilename(
+            initialdir=self.root,
         )
         if len(path) == 0:
             return
-        path = path[0].replace(".caips", "")
+        path = path.replace(".caips", "")
         with open(path + ".caips", "wb") as f:
             pickle.dump(self.parameters, f)
             self.log_message("Successfully saved parameters")
 
     def callback_load_parameters(self):
-        path = plyer.filechooser.open_file(
-            path=os.getcwd(),
-            title="Chose parameter file",
-            filters=["*.caips"]
+        Tk().withdraw()
+        path = askopenfilename(
+            initialdir=self.root,
         )
         if len(path) == 0:
             return
-        path = path[0]
         if os.path.exists(path) and len(path) > 0:
             if path.endswith(".caips"):
                 with open(path, "rb") as f:
@@ -353,6 +374,11 @@ class GUI(object):
                 msg=f"Unknown file path: {path}",
                 type_="critical",
             )
+
+    def callback_open_last_gif(self):
+        if os.path.exists("saved_parameters/temp.gif"):
+            self.update_canvas(
+                gif_path="saved_parameters/temp.gif")
 
     @staticmethod
     def callback_show_credits():
@@ -381,26 +407,70 @@ class GUI(object):
                 self.parameters["By"],
                 0,  # C
             ]
-            solver = establishing_solver.EstablishingSolverV4()
+            solver = establishing_solver.EstablishingSolver(parameters=self.parameters)
             self.log_message(f"Used following vector: {vector}")
             self.log_message("Started calculating for first mode...")
             solution = solver.establish(values=vector, logger=self.log_message)
-            print(solution)
+            solver.make_animation(solution)
 
-            # ------------
-            # Using Canvas
-            # ------------
+        elif self.current_mode == 2:
+            # 6 score
+            vector = [
+                0,                      # x1
+                0,                      # x2
+                self.parameters["Ay"],  # y
+                0,                      # phi1
+                0,                      # phi2
+                self.parameters["Ax"],  # Ax
+                self.parameters["Ay"],  # Ay
+                self.parameters["Bx"],  # Bx
+                self.parameters["By"],  # By
+                3*numpy.pi/8,           # C
+                0                       # Vy
+            ]
+            solver = tracking_dynamics.DynamicsSolver(self.parameters)
+            self.log_message(f"Used following vector: {vector}")
+            self.log_message("Started calculating for second mode...")
+            solution = solver.find_solution(values=vector, logger=self.log_message)
+            solver.make_animation(solution)
 
-            self.low_graphing(solution)
-
-
-            plt.show()
         else:
-            self.log_message(
-                msg="BRANCH NOT IMPLEMENTED",
-                type_="critical",
-            )
+            # 9 score
+            constants = np.zeros(17)
+            constants[0] = 2.0  # p
+            constants[1] = self.parameters['Ax']  # Ax
+            constants[2] = self.parameters['Ay']  # Ay
+            constants[3] = self.parameters['Bx']  # Bx
+            constants[4] = self.parameters['By']  # By
+            constants[5] = self.parameters['Xtop']  # xTop
+            constants[6] = self.parameters['Ytop']  # yTop
+            constants[7] = self.parameters['Xbot']  # xBot
+            constants[8] = self.parameters['Ybot']  # yBot
+            constants[9] = self.parameters['Rt']  # rt
+            constants[10] = self.parameters['Rb']  # rb
+            constants[11] = 24.0  # pt
+            constants[12] = 8.0  # pb
+            constants[13] = 2.753364902  # phiNd1
+            constants[14] = 1.182568575  # phiNd2
+            constants[15] = 0.776455503  # phiNd3
+            constants[16] = 5.001905970  # phiSum
 
+            vector = np.array([-0.09873235, -0.08371553, -0.01807103, -0.25989637, -0.25989644,  1.34486033,
+                              1.45343776,  1.77163468,  0.4914802,   0.60352888,  0.56418933,  0.70054672,
+                              0.99360681,  0.33614595,  0.4481946,   2.9280291,   1.01325743,  0.468752,
+                              2.98332936,  2.00351769,  1.39454183,  5.04875036,  4.41082301,  1.7290595,
+                              4.71238898])
+
+            solver = two_tier_air_cushion.TwoTierSolver(self.parameters)
+            self.log_message(f"Used following vector: {constants}")
+            self.log_message("Started calculating for third mode...")
+            solution = solver.gradient_descent(vector, constants, self.log_message, learn_rate=0.0007)
+            solver.makePlot(vector=solution, constants=constants)
+
+        # Draw in Canvas
+        self.update_canvas(
+            "saved_parameters/temp.gif",
+        )
     # -----------------
     # Sliders Callbacks
     # -----------------
@@ -501,61 +571,6 @@ class GUI(object):
             if dpg.get_item_label(link) not in self.parameters.keys():
                 dpg.delete_item(link)
 
-    @staticmethod
-    def euclidean_distance(p1: tuple, p2: tuple) -> float:
-        return math.sqrt(
-            (p1[0] - p2[0])**2 + (p1[1] - p2[1])**2
-        )
-
-    def low_graphing(self, vector: list[float]):
-        fig, axs = plt.subplots(1, 1, figsize=(5, 5))
-        axs.set_aspect("equal")
-        r1 = self.euclidean_distance(
-            p1=(self.parameters["Ax"], self.parameters["Ay"]),
-            p2=(vector[0], vector[2]),
-        )
-        r2 = self.euclidean_distance(
-            p1=(self.parameters["Bx"], self.parameters["By"]),
-            p2=(vector[1], vector[2]),
-        )
-
-        # Line AB
-        axs.plot((self.parameters["Ax"], self.parameters["Bx"]), (self.parameters["Ay"], self.parameters["By"]),
-                 color='black')
-        # Line X1X2
-        axs.plot((vector[0], vector[1]), (0, 0),
-                 color='black')
-
-        arc1 = pth.Arc(
-            xy=(vector[0], vector[2]),
-            width=r1*2,
-            height=r1*2,
-            angle=0,
-            theta1=(self.parameters["alpha5"] - vector[3]) * 180 / math.pi,
-            theta2=(self.parameters["alpha5"] * 180 / math.pi),
-
-        )
-        axs.add_patch(arc1)
-
-        arc2 = pth.Arc(
-            xy=(vector[1], vector[2]),
-            width=r2 * 2,
-            height=r2 * 2,
-            angle=270,
-            theta1=0,
-            theta2=vector[4] * 180 / math.pi,
-
-        )
-        axs.add_patch(arc2)
-
-        # Convert to GIF format
-        fig.savefig("saved_parameters/temp.png")
-        im = Image.open("saved_parameters/temp.png")
-        im.save("saved_parameters/temp.gif")
-        self.update_canvas(
-            "saved_parameters/temp.gif",
-            sleep=0.1
-        )
 
     @staticmethod
     def init_canvas():
@@ -573,11 +588,11 @@ class GUI(object):
                 tag="current image"
             )
 
-    def update_canvas(self, gif_path: str, sleep=1):
+    def update_canvas(self, gif_path: str, sleep=0.05):
         # Open GIF
         img = Image.open(gif_path)
 
-        for part in img.split():
+        for part in ImageSequence.Iterator(img):
             part = part.convert("RGBA")
             part = numpy.frombuffer(part.tobytes(), dtype=numpy.uint8) / 255.0
             dpg.set_value("current image", part)
