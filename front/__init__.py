@@ -10,6 +10,7 @@ import front.gui_parameters as gp
 from dearpygui_ext import logger
 from back import establishing_solver, tracking_dynamics, two_tier_air_cushion
 from PIL import Image, ImageSequence
+import numpy as np
 
 
 class GUI(object):
@@ -324,11 +325,8 @@ class GUI(object):
             )
         else:
             self.slider_intersection(
-                req=self.parameters.keys()
+                req=["Ax", "Ay", "Bx", "By", "Xtop", "Ytop", "Xbot", "Ybot", "Rt", "Rb"]
             )
-
-
-
 
         # Logging
         self.log_message(
@@ -376,7 +374,6 @@ class GUI(object):
                 msg=f"Unknown file path: {path}",
                 type_="critical",
             )
-
 
     def callback_open_last_gif(self):
         if os.path.exists("saved_parameters/temp.gif"):
@@ -438,21 +435,37 @@ class GUI(object):
             solver.make_animation(solution)
 
         else:
-            # 8 score
-            solution = {
-                key: 0
-                for key in [
-                    "x1", "x2", "x3", "x4", "x5",
-                    "y1", "y2", "y3", "y4", "y5",
-                    "r1", "r2", "r3", "r4", "r5",
-                    "alpha1", "alpha2", "alpha3", "alpha4", "alpha5",
-                    "phi1", "phi2", "phi3", "phi4", "phi5",
-                ]
-            }
+            # 9 score
+            constants = np.zeros(17)
+            constants[0] = 2.0  # p
+            constants[1] = self.parameters['Ax']  # Ax
+            constants[2] = self.parameters['Ay']  # Ay
+            constants[3] = self.parameters['Bx']  # Bx
+            constants[4] = self.parameters['By']  # By
+            constants[5] = self.parameters['Xtop']  # xTop
+            constants[6] = self.parameters['Ytop']  # yTop
+            constants[7] = self.parameters['Xbot']  # xBot
+            constants[8] = self.parameters['Ybot']  # yBot
+            constants[9] = self.parameters['Rt']  # rt
+            constants[10] = self.parameters['Rb']  # rb
+            constants[11] = 24.0  # pt
+            constants[12] = 8.0  # pb
+            constants[13] = 2.753364902  # phiNd1
+            constants[14] = 1.182568575  # phiNd2
+            constants[15] = 0.776455503  # phiNd3
+            constants[16] = 5.001905970  # phiSum
+
+            vector = np.array([-0.09873235, -0.08371553, -0.01807103, -0.25989637, -0.25989644,  1.34486033,
+                              1.45343776,  1.77163468,  0.4914802,   0.60352888,  0.56418933,  0.70054672,
+                              0.99360681,  0.33614595,  0.4481946,   2.9280291,   1.01325743,  0.468752,
+                              2.98332936,  2.00351769,  1.39454183,  5.04875036,  4.41082301,  1.7290595,
+                              4.71238898])
+
             solver = two_tier_air_cushion.TwoTierSolver(self.parameters)
-            self.log_message(f"Used following vector: {solution}")
+            self.log_message(f"Used following vector: {constants}")
             self.log_message("Started calculating for third mode...")
-            solver.makePlot(solution)
+            solution = solver.gradient_descent(vector, constants, self.log_message, learn_rate=0.0007)
+            solver.makePlot(vector=solution, constants=constants)
 
         # Draw in Canvas
         self.update_canvas(
