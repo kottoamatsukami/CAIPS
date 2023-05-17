@@ -1,8 +1,9 @@
 from back import establishing_solver
-import numpy as np
 import math
-from matplotlib import pyplot as plt, patches as pth
+from matplotlib import pyplot as plt, patches as pth, use
 from celluloid import Camera
+
+use('agg')
 
 M = 100
 P = 2000
@@ -125,5 +126,4 @@ class DynamicsSolver(object):
             camera.snap()
 
         animation = camera.animate()
-        plt.show()
-        animation.save('saved_parameters/temp.gif')
+        animation.save('saved_parameters/temp.gif', writer='pillow')

@@ -1,8 +1,11 @@
 import pickle
 import numpy as np
 from PIL import Image
-from matplotlib import pyplot as plt, patches as pth
+from matplotlib import pyplot as plt, patches as pth, use
 import back
+
+use('agg')
+
 
 
 class EstablishingSolver(object):
@@ -27,7 +30,6 @@ class EstablishingSolver(object):
         return f
 
     def establish(self, values: list[float], logger) -> list[float]:
-        # 5 7 6 3 4
         X = [np.array([values[5], values[7], values[6], values[3], values[4]]) for _ in range(2)]
 
         key = 0

@@ -1,7 +1,9 @@
 import numpy as np
 from numpy import sin, cos, pi
 from PIL import Image
-from matplotlib import pyplot as plt, patches as pth
+from matplotlib import pyplot as plt, patches as pth, use
+
+use('agg')
 
 
 class TwoTierSolver(object):
@@ -359,7 +361,6 @@ class TwoTierSolver(object):
         )
         axs.add_patch(arcec)
 
-        # plt.show()
 
         # Convert to GIF format
         fig.savefig("saved_parameters/temp.png")
