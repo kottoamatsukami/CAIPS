@@ -588,7 +588,7 @@ class GUI(object):
                 tag="current image"
             )
 
-    def update_canvas(self, gif_path: str, sleep=0.05):
+    def update_canvas(self, gif_path: str, sleep=0.01):
         # Open GIF
         img = Image.open(gif_path)
 

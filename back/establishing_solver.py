@@ -44,7 +44,7 @@ class EstablishingSolver(object):
             if epoch % 250 == 0:
                 logger(f"epoch[{epoch}]: norm={np.linalg.norm(abs(X[0]-X[1]), ord=2)}")
             # Critical
-            if epoch >= 300_000 or np.linalg.norm(abs(X[0]-X[1]), ord=2) == np.inf:
+            if epoch >= 1_000 or np.linalg.norm(abs(X[0]-X[1]), ord=2) == np.inf:
                 logger("It cannot be solved", 'critical')
                 break
             epoch += 1

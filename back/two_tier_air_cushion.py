@@ -261,8 +261,8 @@ class TwoTierSolver(object):
 
         return gradient
 
-    def gradient_descent(self, vector, constants, logger, learn_rate=0.0005, tolerance=1e-3):
-        stop = 300000
+    def gradient_descent(self, vector, constants, logger, learn_rate=0.0005, tolerance=5e-3):
+        stop = 100000
         for heatstop in range(stop):
             gradient = self.calc_gradient(vector, constants)
 
@@ -286,6 +286,7 @@ class TwoTierSolver(object):
                 return vector
             if heatstop % 1000 == 0:
                 logger(f"[{heatstop}] Error = {np.linalg.norm(self.F(vector, constants), 2)}")
+
         logger("Heatstop", "warning")
         return vector
 
